@@ -1,4 +1,4 @@
-import type { ProfileUpload, RemoteProfile, RemoteRow, ServerRow } from '../src/sync/types'
+import { LIMITS, type ProfileUpload, type RemoteProfile, type RemoteRow, type ServerRow, type SnapshotInfo } from '../src/sync/types'
 
 /**
  * Persistence for the sync API. Every method is scoped by `user` (from the verified login), so
@@ -17,6 +17,10 @@ export interface SyncStore {
   head(user: string, id: string): Promise<number>
   upsertRows(user: string, id: string, rows: RemoteRow[]): Promise<number>
   countRows(user: string, id: string): Promise<number>
+  /** Keep one encrypted copy of the profile per day (taken before that day's first change), newest 14 days. */
+  ensureSnapshot(user: string, id: string, day: string, now: number): Promise<void>
+  listSnapshots(user: string, id: string): Promise<SnapshotInfo[]>
+  snapshotRows(user: string, id: string, day: string, afterK: string, limit: number): Promise<RemoteRow[]>
 }
 
 // ---------- Cloudflare D1 ----------
@@ -42,6 +46,13 @@ const SCHEMA = [
     u INTEGER NOT NULL, x INTEGER NOT NULL DEFAULT 0, iv TEXT, ct TEXT, r INTEGER NOT NULL,
     PRIMARY KEY (user, profile, k))`,
   `CREATE INDEX IF NOT EXISTS rows_r ON rows (user, profile, r)`,
+  `CREATE TABLE IF NOT EXISTS snapshot_days (
+    user TEXT NOT NULL, profile TEXT NOT NULL, day TEXT NOT NULL, rows INTEGER NOT NULL, created INTEGER NOT NULL,
+    PRIMARY KEY (user, profile, day))`,
+  `CREATE TABLE IF NOT EXISTS snapshots (
+    user TEXT NOT NULL, profile TEXT NOT NULL, day TEXT NOT NULL, k TEXT NOT NULL, t TEXT NOT NULL,
+    u INTEGER NOT NULL, iv TEXT NOT NULL, ct TEXT NOT NULL,
+    PRIMARY KEY (user, profile, day, k))`,
 ]
 
 interface ProfileRow { id: string; name: string; salt: string; check_iv: string; check_ct: string; created: number; updated: number; n?: number }
@@ -81,6 +92,8 @@ export class D1Store implements SyncStore {
   async deleteProfile(user: string, id: string) {
     await this.db.batch([
       this.db.prepare(`DELETE FROM rows WHERE user = ? AND profile = ?`).bind(user, id),
+      this.db.prepare(`DELETE FROM snapshots WHERE user = ? AND profile = ?`).bind(user, id),
+      this.db.prepare(`DELETE FROM snapshot_days WHERE user = ? AND profile = ?`).bind(user, id),
       this.db.prepare(`DELETE FROM profiles WHERE user = ? AND id = ?`).bind(user, id),
     ])
   }
@@ -100,6 +113,39 @@ export class D1Store implements SyncStore {
   async countRows(user: string, id: string) {
     const c = await this.db.prepare(`SELECT COUNT(*) AS c FROM rows WHERE user = ? AND profile = ?`).bind(user, id).first<{ c: number }>()
     return c?.c ?? 0
+  }
+
+  async ensureSnapshot(user: string, id: string, day: string, now: number) {
+    const have = await this.db.prepare(`SELECT 1 AS x FROM snapshot_days WHERE user = ? AND profile = ? AND day = ?`).bind(user, id, day).first()
+    if (have) return
+    const n = await this.db.prepare(`SELECT COUNT(*) AS c FROM rows WHERE user = ? AND profile = ? AND x = 0`).bind(user, id).first<{ c: number }>()
+    if (!n?.c) return
+    await this.db.batch([
+      this.db.prepare(`INSERT OR IGNORE INTO snapshots (user, profile, day, k, t, u, iv, ct)
+        SELECT user, profile, ?, k, t, u, iv, ct FROM rows WHERE user = ? AND profile = ? AND x = 0`).bind(day, user, id),
+      this.db.prepare(`INSERT OR IGNORE INTO snapshot_days (user, profile, day, rows, created) VALUES (?,?,?,?,?)`).bind(user, id, day, n.c, now),
+    ])
+    const { results } = await this.db
+      .prepare(`SELECT day FROM snapshot_days WHERE user = ? AND profile = ? ORDER BY day DESC LIMIT -1 OFFSET ?`)
+      .bind(user, id, LIMITS.snapshotDaysKept).all<{ day: string }>()
+    for (const old of results) {
+      await this.db.batch([
+        this.db.prepare(`DELETE FROM snapshots WHERE user = ? AND profile = ? AND day = ?`).bind(user, id, old.day),
+        this.db.prepare(`DELETE FROM snapshot_days WHERE user = ? AND profile = ? AND day = ?`).bind(user, id, old.day),
+      ])
+    }
+  }
+
+  async listSnapshots(user: string, id: string) {
+    const { results } = await this.db.prepare(`SELECT day, rows FROM snapshot_days WHERE user = ? AND profile = ? ORDER BY day DESC`).bind(user, id).all<SnapshotInfo>()
+    return results
+  }
+
+  async snapshotRows(user: string, id: string, day: string, afterK: string, limit: number) {
+    const { results } = await this.db
+      .prepare(`SELECT k, t, u, iv, ct FROM snapshots WHERE user = ? AND profile = ? AND day = ? AND k > ? ORDER BY k LIMIT ?`)
+      .bind(user, id, day, afterK, limit).all<{ k: string; t: RemoteRow['t']; u: number; iv: string; ct: string }>()
+    return results
   }
 
   /** Last-writer-wins by `u`; each accepted write gets the next `r` (statements in a batch run in order). */
@@ -124,6 +170,7 @@ export class MemoryStore implements SyncStore {
   profiles = new Map<string, RemoteProfile>() // key user|id
   rows = new Map<string, ServerRow>() // key user|id|k
   counters = new Map<string, number>()
+  snaps = new Map<string, Map<string, RemoteRow[]>>() // user|id -> day -> rows
 
   async init() {}
   private pk = (u: string, id: string) => `${u}|${id}`
@@ -141,6 +188,7 @@ export class MemoryStore implements SyncStore {
   async deleteProfile(user: string, id: string) {
     this.profiles.delete(this.pk(user, id))
     for (const k of [...this.rows.keys()]) if (k.startsWith(`${user}|${id}|`)) this.rows.delete(k)
+    this.snaps.delete(this.pk(user, id))
   }
   async rowsAfter(user: string, id: string, since: number, limit: number) {
     return [...this.rows.entries()].filter(([k, r]) => k.startsWith(`${user}|${id}|`) && r.r > since).map(([, r]) => r).sort((a, b) => a.r - b.r).slice(0, limit)
@@ -163,5 +211,21 @@ export class MemoryStore implements SyncStore {
       n++
     }
     return n
+  }
+
+  async ensureSnapshot(user: string, id: string, day: string) {
+    const days = this.snaps.get(this.pk(user, id)) ?? new Map<string, RemoteRow[]>()
+    if (days.has(day)) return
+    const live = [...this.rows.entries()].filter(([k, r]) => k.startsWith(`${user}|${id}|`) && !r.x).map(([, r]): RemoteRow => ({ k: r.k, t: r.t, u: r.u, iv: r.iv, ct: r.ct }))
+    if (!live.length) return
+    days.set(day, live)
+    for (const old of [...days.keys()].sort().reverse().slice(LIMITS.snapshotDaysKept)) days.delete(old)
+    this.snaps.set(this.pk(user, id), days)
+  }
+  async listSnapshots(user: string, id: string) {
+    return [...(this.snaps.get(this.pk(user, id)) ?? new Map<string, RemoteRow[]>()).entries()].map(([day, r]) => ({ day, rows: r.length })).sort((a, b) => b.day.localeCompare(a.day))
+  }
+  async snapshotRows(user: string, id: string, day: string, afterK: string, limit: number) {
+    return (this.snaps.get(this.pk(user, id))?.get(day) ?? []).filter((r) => r.k > afterK).sort((a, b) => (a.k < b.k ? -1 : 1)).slice(0, limit)
   }
 }

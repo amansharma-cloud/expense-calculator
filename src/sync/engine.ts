@@ -50,3 +50,22 @@ export async function syncProfile(session: Session, api: SyncApi, now: () => Dat
   await session.setSync({ enabled: true, lastPullR, lastPushU, lastSyncAt: now().toISOString() })
   return { pulled, pushed, changedLocal }
 }
+
+/**
+ * Replace this profile with a daily restore point from the cloud. The change then syncs to every device like any
+ * other edit. The caller should run `syncProfile` afterwards and reload the screen.
+ */
+export async function restoreSnapshot(session: Session, api: SyncApi, day: string): Promise<number> {
+  if (!session.meta.sync?.enabled || !session.encrypted) throw new SyncError('Sync is not turned on for this profile.')
+  const rows: RemoteRow[] = []
+  let after = ''
+  for (;;) {
+    const page = await api.pullSnapshot(session.meta.id, day, after)
+    rows.push(...page.rows)
+    if (page.next === null) break
+    after = page.next
+  }
+  if (!rows.length) throw new SyncError('That restore point is empty or no longer available.')
+  await session.replaceWithRaw(rows)
+  return rows.length
+}

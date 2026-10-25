@@ -85,7 +85,7 @@ export async function handleApi(req: Request, user: string, store: SyncStore, no
 
   if (path === '/api/profiles' && method === 'GET') return json({ profiles: await store.listProfiles(user) })
 
-  const m = path.match(/^\/api\/profiles\/([^/]+)(\/rows)?$/)
+  const m = path.match(/^\/api\/profiles\/([^/]+)(?:\/(rows|snapshots)(?:\/(\d{4}-\d{2}-\d{2}))?)?$/)
   if (!m) return fail(404, 'not found')
   const id = m[1]
   if (!UUID.test(id)) return fail(400, 'invalid profile id')
@@ -108,8 +108,16 @@ export async function handleApi(req: Request, user: string, store: SyncStore, no
     return fail(405, 'method not allowed')
   }
 
-  // /rows
   if (!(await store.getProfile(user, id))) return fail(404, 'profile not found')
+
+  if (m[2] === 'snapshots') {
+    if (method !== 'GET') return fail(405, 'method not allowed')
+    if (!m[3]) return json({ snapshots: await store.listSnapshots(user, id) })
+    const after = url.searchParams.get('after') ?? ''
+    if (after.length > 120) return fail(400, 'invalid cursor')
+    const rows = await store.snapshotRows(user, id, m[3], after, LIMITS.maxRowsPerSnapshotPage)
+    return json({ rows, next: rows.length === LIMITS.maxRowsPerSnapshotPage ? rows[rows.length - 1].k : null })
+  }
 
   if (method === 'GET') {
     const since = Number(url.searchParams.get('since') ?? 0)
@@ -126,6 +134,7 @@ export async function handleApi(req: Request, user: string, store: SyncStore, no
     const rows = validateRows(body, now)
     if (typeof rows === 'string') return fail(400, rows)
     if ((await store.countRows(user, id)) + rows.length > LIMITS.maxRowsPerProfile + LIMITS.maxRowsPerPush) return fail(413, 'this profile has too many records for cloud sync')
+    await store.ensureSnapshot(user, id, new Date(now).toISOString().slice(0, 10), now) // restore point = state before today's first change
     return json({ accepted: await store.upsertRows(user, id, rows) })
   }
   return fail(405, 'method not allowed')

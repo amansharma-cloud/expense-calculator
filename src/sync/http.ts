@@ -1,6 +1,6 @@
 import {
   SyncAuthError, SyncError, SyncUnavailableError,
-  type ProfileUpload, type PullResult, type RemoteProfile, type RemoteRow, type SyncApi,
+  type ProfileUpload, type PullResult, type SnapshotInfo, type RemoteProfile, type RemoteRow, type SyncApi,
 } from './types'
 
 /** Talks to this site's own /api (same origin; the Cloudflare Access login cookie goes along automatically). */
@@ -41,6 +41,12 @@ export class HttpSyncApi implements SyncApi {
   }
   push(id: string, rows: RemoteRow[]) {
     return this.call<{ accepted: number }>('POST', `/api/profiles/${id}/rows`, { rows })
+  }
+  async listSnapshots(id: string): Promise<SnapshotInfo[]> {
+    return (await this.call<{ snapshots: SnapshotInfo[] }>('GET', `/api/profiles/${id}/snapshots`)).snapshots
+  }
+  pullSnapshot(id: string, day: string, after: string) {
+    return this.call<{ rows: RemoteRow[]; next: string | null }>('GET', `/api/profiles/${id}/snapshots/${day}?after=${encodeURIComponent(after)}`)
   }
   async deleteProfile(id: string) {
     await this.call('DELETE', `/api/profiles/${id}`)

@@ -8,9 +8,9 @@ import { cycleBounds, todayISO } from '../engine/dates'
 import { DEFAULT_CATEGORIES } from '../engine/quick'
 import type { Allocation, BudgetResult, Cycle, Paise, Plan, PlannedItem, Transaction } from '../engine/types'
 import type { ImportPlan } from '../import/excel'
-import { syncProfile } from '../sync/engine'
+import { restoreSnapshot, syncProfile } from '../sync/engine'
 import { HttpSyncApi } from '../sync/http'
-import { SyncAuthError, SyncUnavailableError, type RemoteProfile, type SyncApi, type SyncStatus } from '../sync/types'
+import { SyncAuthError, SyncUnavailableError, type RemoteProfile, type SnapshotInfo, type SyncApi, type SyncStatus } from '../sync/types'
 
 const uid = () => crypto.randomUUID()
 
@@ -75,6 +75,8 @@ interface Store {
   syncNow(): Promise<void>
   restoreFromCloud(remote: RemoteProfile, pin: string): Promise<void>
   signIn(): void
+  restorePoints(): Promise<SnapshotInfo[]>
+  restoreFromPoint(day: string): Promise<void>
 }
 
 const Ctx = createContext<Store | null>(null)
@@ -293,6 +295,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setActive({ ...ses.meta })
     setSyncState((x) => ({ status: 'off', email: x.email }))
   }
+  const restorePoints: Store['restorePoints'] = async () => {
+    if (!active) return []
+    return api.current.listSnapshots(active.id)
+  }
+  const restoreFromPoint: Store['restoreFromPoint'] = async (day) => {
+    const ses = session.current
+    if (!ses) return
+    await restoreSnapshot(ses, api.current, day)
+    setData(await ses.load())
+    inducedReload.current = true
+    await runSync()
+  }
   const restoreFromCloud: Store['restoreFromCloud'] = async (remote, pin) => {
     const meta = await createProfileFromRemote(remote)
     try {
@@ -460,6 +474,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     exportData: () => data,
     sync: syncState, cloudCheck, cloudProfiles, enableSync, disableSync, syncNow: runSync, restoreFromCloud,
     signIn: () => { window.location.href = '/login' },
+    restorePoints, restoreFromPoint,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

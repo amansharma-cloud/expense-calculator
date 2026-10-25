@@ -46,6 +46,12 @@ export interface PullResult {
   head: number
 }
 
+export interface SnapshotInfo {
+  /** UTC day, YYYY-MM-DD */
+  day: string
+  rows: number
+}
+
 export interface SyncApi {
   me(): Promise<{ email: string }>
   listProfiles(): Promise<RemoteProfile[]>
@@ -53,6 +59,9 @@ export interface SyncApi {
   pull(profileId: string, since: number): Promise<PullResult>
   push(profileId: string, rows: RemoteRow[]): Promise<{ accepted: number }>
   deleteProfile(profileId: string): Promise<void>
+  listSnapshots(profileId: string): Promise<SnapshotInfo[]>
+  /** One page of a restore point (ciphertext rows). `next` is the cursor for the following page, or null. */
+  pullSnapshot(profileId: string, day: string, after: string): Promise<{ rows: RemoteRow[]; next: string | null }>
 }
 
 export const LIMITS = {
@@ -63,6 +72,8 @@ export const LIMITS = {
   maxProfilesPerUser: 5,
   maxCipherChars: 100_000,
   maxClockSkewMs: 24 * 3600_000,
+  snapshotDaysKept: 14,
+  maxRowsPerSnapshotPage: 1000,
 } as const
 
 export type SyncStatus = 'off' | 'idle' | 'syncing' | 'error' | 'needs-login' | 'unavailable' | 'offline'

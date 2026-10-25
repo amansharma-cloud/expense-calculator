@@ -232,6 +232,19 @@ export class Session {
     return write.length
   }
 
+  /**
+   * Make this profile exactly equal to a restore point (rows are still ciphertext). Records missing from the
+   * restore point become deletions; restored records get a fresh change time so they win on every device.
+   */
+  async replaceWithRaw(rows: RemoteRow[]): Promise<void> {
+    const keep = new Set(rows.map((r) => r.k))
+    const live = (await this.db.records.toArray()).filter((r) => !r.x && !keep.has(r.k))
+    await this.db.records.bulkPut([
+      ...live.map((r): RecordRow => ({ k: r.k, t: r.t, u: nextU(), x: 1 })),
+      ...rows.filter((r) => r.iv && r.ct).map((r): RecordRow => ({ k: r.k, t: r.t, u: nextU(), iv: r.iv, ct: r.ct })),
+    ])
+  }
+
   /** Update (or clear) this profile's cloud-sync cursors. */
   async setSync(sync: SyncMeta | undefined): Promise<void> {
     const reg = registry()

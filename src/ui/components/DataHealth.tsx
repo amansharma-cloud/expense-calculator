@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { backupDue, backupFileName, makeBackup } from '../../db/backup'
+import { backupFileName, backupStatus, makeBackup } from '../../db/backup'
 import { backupFolderName, chooseBackupFolder, clearBackupFolder, folderBackupSupported, writeBackupToFolder } from '../../db/autobackup'
 import { DB_SCHEMA_VERSION, requestPersistence, storageStatus } from '../../db/storage'
 import { useStore } from '../../state/store'
@@ -10,12 +10,12 @@ const mb = (n: number | null) => (n === null ? '–' : n < 1024 * 1024 ? `${Math
 /** Dashboard nudge when there is data worth losing and no recent backup. */
 export function BackupReminder() {
   const { data, active } = useStore()
-  const { due, daysSince } = backupDue(active?.lastBackupAt, new Date(), data.transactions.length > 0)
+  const { due, daysSince, synced } = backupStatus(active, new Date(), data.transactions.length > 0)
   if (!due || !active) return null
   return (
     <Alert kind="info">
       {daysSince === null ? 'You have not backed up this profile yet.' : `Your last backup was ${daysSince} days ago.`}{' '}
-      Browser data can be erased by clearing site data or switching devices.{' '}
+      {synced ? 'Your cloud copy is not up to date. Open Settings to check sync, or download a file backup.' : 'Browser data can be erased by clearing site data or switching devices.'}{' '}
       <a href="#/settings">Back up now</a>
     </Alert>
   )
@@ -51,7 +51,7 @@ export function DataHealth() {
   useEffect(() => { void refresh() }, [refresh])
   if (!active) return null
 
-  const { due, daysSince } = backupDue(active.lastBackupAt, new Date(), data.transactions.length > 0)
+  const { due, daysSince } = backupStatus(active, new Date(), data.transactions.length > 0)
   const json = () => makeBackup(active.name, exportData())
   const canShare = typeof navigator !== 'undefined' && !!navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.json', { type: 'application/json' })] })
 

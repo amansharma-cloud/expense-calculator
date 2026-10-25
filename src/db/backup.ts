@@ -91,6 +91,17 @@ export function backupDue(lastBackupAt: string | undefined, now: Date, hasData: 
   return { due: daysSince >= days, daysSince }
 }
 
+/**
+ * Backup status for a profile. With cloud sync on, a recent successful sync counts as a backup (the encrypted
+ * cloud copy plus daily restore points), so the reminder is gentler (30 days) and refers to a file backup.
+ */
+export function backupStatus(meta: { lastBackupAt?: string; sync?: { enabled: true; lastSyncAt?: string } } | null, now: Date, hasData: boolean) {
+  const synced = !!meta?.sync?.enabled
+  const times = [meta?.lastBackupAt, synced ? meta?.sync?.lastSyncAt : undefined].filter(Boolean) as string[]
+  const latest = times.sort().pop()
+  return { ...backupDue(latest, now, hasData, synced ? 30 : BACKUP_REMINDER_DAYS), synced }
+}
+
 export const backupFileName = (profileName: string, now = new Date()) =>
   `expense-calculator-${profileName.replace(/\W+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'profile'}-${now.toISOString().slice(0, 10)}.json`
 

@@ -3,6 +3,7 @@ import { WrongPinError } from '../../db/storage'
 import type { RemoteProfile } from '../../sync/types'
 import { useStore } from '../../state/store'
 import { Alert, Confirm, Field, Modal, useToast } from './common'
+import type { SnapshotInfo } from '../../sync/types'
 
 type Check = { available: boolean; needsLogin?: boolean; email?: string } | null
 
@@ -18,10 +19,12 @@ const STATUS: Record<string, string> = {
 
 /** Settings section: sign in, turn sync on/off for the open profile. */
 export function SyncSettings() {
-  const { active, sync, cloudCheck, enableSync, disableSync, syncNow, signIn } = useStore()
+  const { active, sync, cloudCheck, enableSync, disableSync, syncNow, signIn, restorePoints, restoreFromPoint } = useStore()
   const toast = useToast()
   const [check, setCheck] = useState<Check>(null)
-  const [dlg, setDlg] = useState<'on' | 'off' | null>(null)
+  const [dlg, setDlg] = useState<'on' | 'off' | 'points' | null>(null)
+  const [points, setPoints] = useState<SnapshotInfo[] | null>(null)
+  const [pickDay, setPickDay] = useState<string | null>(null)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   useEffect(() => { void cloudCheck().then(setCheck) }, [cloudCheck, sync.status === 'needs-login'])
@@ -66,6 +69,7 @@ export function SyncSettings() {
           {sync.status === 'needs-login' && <Alert kind="warn">Your sign-in has expired, so changes are waiting on this device. <button className="btn sm" onClick={signIn}>Sign in again</button></Alert>}
           <div className="row">
             <button className="btn" disabled={busy || sync.status === 'syncing'} onClick={() => void syncNow()}>Sync now</button>
+            <button className="btn" onClick={() => { setPoints(null); setErr(''); setDlg('points'); void restorePoints().then(setPoints).catch(() => { setPoints([]); setErr('Could not load restore points.') }) }}>Restore points…</button>
             <button className="btn danger" onClick={() => setDlg('off')}>Turn off sync…</button>
           </div>
         </div>
@@ -74,6 +78,7 @@ export function SyncSettings() {
       <ul className="hint" style={{ margin: 0, paddingLeft: 18 }}>
         <li>Only the encrypted copy is uploaded. Without your PIN, nobody (including the site owner) can read it. A forgotten PIN also locks the cloud copy.</li>
         <li>The server can see your email, how many records there are, and when they changed.</li>
+        <li>While sync is on, the cloud keeps one encrypted restore point per day for 14 days, so a mistake (which syncs to all your devices) can be undone.</li>
         <li>While sync is on, the PIN can’t be changed; turn sync off first.</li>
       </ul>
 
@@ -81,6 +86,30 @@ export function SyncSettings() {
         <Confirm title="Turn on cloud sync?" confirmLabel="Turn on"
           body={<>An encrypted copy of “{active.name}” will be uploaded to your account and kept in step across devices. You can turn this off at any time and delete the cloud copy.</>}
           onCancel={() => setDlg(null)} onConfirm={() => void run(enableSync, 'Sync is on')} />
+      )}
+      {dlg === 'points' && (
+        <Modal title="Restore points" onClose={() => setDlg(null)}>
+          <div className="stack">
+            <p className="ink2">Each point is the state of “{active.name}” at the start of that day (UTC). Restoring rewinds this profile on <b>all your devices</b>; anything added since is removed. Download a backup first if unsure.</p>
+            {points === null && <p className="muted">Loading…</p>}
+            {points?.length === 0 && <p className="muted">No restore points yet. The first one is created the first time you sync on a new day.</p>}
+            <ul className="list">
+              {points?.map((p) => (
+                <li key={p.day}>
+                  <div className="grow"><div className="title">{new Date(p.day + 'T00:00:00Z').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}</div><div className="small muted">{p.rows} records</div></div>
+                  <button className="btn sm" onClick={() => setPickDay(p.day)}>Restore</button>
+                </li>
+              ))}
+            </ul>
+            {err && <Alert kind="bad">{err}</Alert>}
+          </div>
+        </Modal>
+      )}
+      {pickDay && (
+        <Confirm title="Restore this point?" confirmLabel="Restore"
+          body={<>“{active.name}” will be rewound to {pickDay} on every device. Newer records will be removed.</>}
+          onCancel={() => setPickDay(null)}
+          onConfirm={() => { const d = pickDay; setPickDay(null); void run(() => restoreFromPoint(d), 'Restored'); }} />
       )}
       {dlg === 'off' && (
         <Modal title="Turn off sync" onClose={() => setDlg(null)}>
