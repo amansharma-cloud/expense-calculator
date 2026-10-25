@@ -6,3 +6,5 @@ dist
 backup-*.json
 .DS_Store
 .claude
+.dev.vars
+.wrangler

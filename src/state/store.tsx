@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  createProfile, deleteProfile, emptyData, lastProfileId, listProfiles, openProfile, rememberProfile, renameProfile, requestPersistence, setLastBackup,
+  createProfile, createProfileFromRemote, deleteProfile, emptyData, lastProfileId, listProfiles, openProfile, rememberProfile, renameProfile, requestPersistence, setLastBackup,
   type ProfileData, type ProfileMeta, type Session, WrongPinError,
 } from '../db/storage'
 import { closingBalance, computeBudget } from '../engine/budget'
@@ -8,6 +8,9 @@ import { cycleBounds, todayISO } from '../engine/dates'
 import { DEFAULT_CATEGORIES } from '../engine/quick'
 import type { Allocation, BudgetResult, Cycle, Paise, Plan, PlannedItem, Transaction } from '../engine/types'
 import type { ImportPlan } from '../import/excel'
+import { syncProfile } from '../sync/engine'
+import { HttpSyncApi } from '../sync/http'
+import { SyncAuthError, SyncUnavailableError, type RemoteProfile, type SyncApi, type SyncStatus } from '../sync/types'
 
 const uid = () => crypto.randomUUID()
 
@@ -63,6 +66,15 @@ interface Store {
   wipe(): Promise<void>
   markBackedUp(): Promise<void>
   exportData(): ProfileData
+  // cloud sync (optional)
+  sync: { status: SyncStatus; email?: string; error?: string }
+  cloudCheck(): Promise<{ available: boolean; needsLogin?: boolean; email?: string }>
+  cloudProfiles(): Promise<RemoteProfile[]>
+  enableSync(): Promise<void>
+  disableSync(deleteCloud: boolean): Promise<void>
+  syncNow(): Promise<void>
+  restoreFromCloud(remote: RemoteProfile, pin: string): Promise<void>
+  signIn(): void
 }
 
 const Ctx = createContext<Store | null>(null)
@@ -83,6 +95,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [today, setToday] = useState(todayISO())
   const session = useRef<Session | null>(null)
   const openSeq = useRef(0)
+  const api = useRef<SyncApi>(new HttpSyncApi())
+  const syncing = useRef(false)
+  const inducedReload = useRef(false)
+  const [syncState, setSyncState] = useState<{ status: SyncStatus; email?: string; error?: string }>({ status: 'off' })
   const booted = useRef(false)
 
   const refreshProfiles = useCallback(async () => setProfiles(await listProfiles()), [])
@@ -137,11 +153,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!active) return
     await renameProfile(active.id, name)
     setActive({ ...active, name: name.trim() || 'Me' })
+    if (active.sync?.enabled && active.salt && active.check) {
+      void api.current.putProfile({ id: active.id, name: name.trim() || 'Me', salt: active.salt, checkIv: active.check.iv, checkCt: active.check.ct }).catch(() => {})
+    }
     await refreshProfiles()
   }, [active, refreshProfiles])
 
   const setPin = useCallback(async (pin: string | null) => {
     if (!session.current) return
+    if (session.current.meta.sync?.enabled) throw new Error('Turn off cloud sync first, change the PIN, then turn sync on again (the cloud copy is encrypted with the old PIN).')
     await session.current.setPin(pin)
     setActive({ ...session.current.meta })
     await refreshProfiles()
@@ -195,6 +215,93 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     document.addEventListener('visibilitychange', onVis)
     return () => document.removeEventListener('visibilitychange', onVis)
   }, [active, lock])
+
+
+  // ---------- optional cloud sync ----------
+  const runSync = useCallback(async () => {
+    const ses = session.current
+    if (!ses || !ses.meta.sync?.enabled || syncing.current) return
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) { setSyncState((x) => ({ ...x, status: 'offline' })); return }
+    syncing.current = true
+    setSyncState((x) => ({ ...x, status: 'syncing', error: undefined }))
+    try {
+      const r = await syncProfile(ses, api.current)
+      if (session.current !== ses) return
+      setActive({ ...ses.meta })
+      if (r.changedLocal) {
+        inducedReload.current = true
+        setData(await ses.load())
+      }
+      setSyncState((x) => ({ ...x, status: 'idle', error: undefined }))
+    } catch (e) {
+      const status: SyncStatus = e instanceof SyncAuthError ? 'needs-login' : e instanceof SyncUnavailableError ? 'unavailable' : e instanceof TypeError ? 'offline' : 'error'
+      setSyncState((x) => ({ ...x, status, error: status === 'error' && e instanceof Error ? e.message : undefined }))
+    } finally {
+      syncing.current = false
+    }
+  }, [])
+
+  const syncOn = !!active?.sync?.enabled
+  useEffect(() => {
+    if (!syncOn) { setSyncState((x) => (x.status === 'off' ? x : { status: 'off', email: x.email })); return }
+    setSyncState((x) => ({ ...x, status: 'idle' }))
+    void runSync()
+    const again = () => void runSync()
+    const onVis = () => document.visibilityState === 'visible' && again()
+    const t = setInterval(again, 5 * 60_000)
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('online', again)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('online', again) }
+  }, [syncOn, active?.id, runSync])
+
+  // push soon after the user's own changes (not after a reload that sync itself caused)
+  useEffect(() => {
+    if (!syncOn) return
+    if (inducedReload.current) { inducedReload.current = false; return }
+    const t = setTimeout(() => void runSync(), 3000)
+    return () => clearTimeout(t)
+  }, [data, syncOn, runSync])
+
+  const cloudCheck: Store['cloudCheck'] = async () => {
+    try {
+      const me = await api.current.me()
+      setSyncState((x) => ({ ...x, email: me.email }))
+      return { available: true, email: me.email }
+    } catch (e) {
+      if (e instanceof SyncAuthError) return { available: true, needsLogin: true }
+      return { available: false }
+    }
+  }
+  const cloudProfiles: Store['cloudProfiles'] = () => api.current.listProfiles()
+  const enableSync: Store['enableSync'] = async () => {
+    const ses = session.current
+    if (!ses) return
+    if (!ses.encrypted) throw new Error('Set a PIN first: only PIN-protected (encrypted) profiles can sync.')
+    const me = await api.current.me()
+    const m = ses.meta
+    await api.current.putProfile({ id: m.id, name: m.name, salt: m.salt!, checkIv: m.check!.iv, checkCt: m.check!.ct })
+    await ses.setSync({ enabled: true, lastPullR: 0, lastPushU: 0 })
+    setSyncState({ status: 'idle', email: me.email })
+    setActive({ ...ses.meta })
+    await runSync()
+  }
+  const disableSync: Store['disableSync'] = async (deleteCloud) => {
+    const ses = session.current
+    if (!ses) return
+    if (deleteCloud) await api.current.deleteProfile(ses.meta.id)
+    await ses.setSync(undefined)
+    setActive({ ...ses.meta })
+    setSyncState((x) => ({ status: 'off', email: x.email }))
+  }
+  const restoreFromCloud: Store['restoreFromCloud'] = async (remote, pin) => {
+    const meta = await createProfileFromRemote(remote)
+    try {
+      await selectProfile(meta.id, pin)
+    } catch (e) {
+      await deleteProfile(meta.id) // wrong PIN: don't leave a half-restored profile behind
+      throw e
+    }
+  }
 
   const plan = data.plan ?? defaultPlan()
 
@@ -351,6 +458,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     data, today, plan, cycle, budget, suggestedOpeningCarry, categories,
     addTx, updateTx, deleteTx, addPlanned, deletePlanned, payPlanned, savePlan, startCycle, updateCycle, applyImport, replaceAll, wipe, markBackedUp,
     exportData: () => data,
+    sync: syncState, cloudCheck, cloudProfiles, enableSync, disableSync, syncNow: runSync, restoreFromCloud,
+    signIn: () => { window.location.href = '/login' },
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

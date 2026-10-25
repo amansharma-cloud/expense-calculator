@@ -1,8 +1,15 @@
 {
   "name": "expense-calculator",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/login"]
   }
+  // Sync (optional) needs these three things, filled in after the Cloudflare dashboard steps in docs/SYNC-SETUP.md:
+  //   "d1_databases": [{ "binding": "DB", "database_name": "expense-calculator", "database_id": "<id>" }],
+  //   "vars": { "ACCESS_TEAM_DOMAIN": "<team>.cloudflareaccess.com", "ACCESS_AUD": "<aud tag>" }
+  // Without them the app works exactly as before and the sync API answers "not configured".
 }

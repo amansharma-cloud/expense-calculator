@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { parseBackup } from '../../db/backup'
 import { useStore } from '../../state/store'
 import { Alert, Confirm, Field, Icon, Modal, Seg, useToast } from '../components/common'
+import { SyncSettings } from '../components/CloudSync'
 import { DataHealth } from '../components/DataHealth'
 import { ImportWizard } from '../components/ImportWizard'
 
 export function Settings() {
-  const { active, profiles, plan, savePlan, renameActive, setPin, lock, switchAway, removeProfile, wipe, replaceAll } = useStore()
+  const { active, profiles, plan, savePlan, renameActive, setPin, lock, switchAway, removeProfile, wipe, replaceAll, disableSync } = useStore()
   const toast = useToast()
   const [name, setName] = useState(active?.name ?? '')
   const [pinModal, setPinModal] = useState<'set' | 'remove' | null>(null)
@@ -16,6 +17,8 @@ export function Settings() {
   const [restoreErr, setRestoreErr] = useState('')
   const [importing, setImporting] = useState(false)
   const [typed, setTyped] = useState('')
+  const [dangerErr, setDangerErr] = useState('')
+  const [pinErr, setPinErr] = useState('')
   if (!active) return null
 
   const onRestoreFile = async (f?: File) => {
@@ -47,11 +50,14 @@ export function Settings() {
           ? <Alert kind="good">This profile is encrypted with your PIN (AES-256-GCM). It locks after 5 minutes in the background.</Alert>
           : <Alert kind="warn">No PIN: this profile is <b>not</b> encrypted. Anyone using this browser on this device can open it from the profile list.</Alert>}
         <div className="row">
-          <button className="btn" onClick={() => { setPinText(''); setPinModal('set') }}>{active.locked ? 'Change PIN' : 'Set a PIN'}</button>
-          {active.locked && <button className="btn" onClick={() => setPinModal('remove')}>Remove PIN</button>}
+          <button className="btn" disabled={!!active.sync?.enabled} onClick={() => { setPinText(''); setPinErr(''); setPinModal('set') }}>{active.locked ? 'Change PIN' : 'Set a PIN'}</button>
+          {active.locked && <button className="btn" disabled={!!active.sync?.enabled} onClick={() => { setPinErr(''); setPinModal('remove') }}>Remove PIN</button>}
+          {active.sync?.enabled && <span className="hint">Turn off cloud sync to change the PIN.</span>}
         </div>
         <p className="hint">A forgotten PIN cannot be recovered; only a backup file can restore the data. Backup files are <b>not</b> encrypted, so store them privately.</p>
       </section>
+
+      <SyncSettings />
 
       <section className="card stack">
         <h2>Appearance</h2>
@@ -99,13 +105,16 @@ export function Settings() {
         <Modal title={pinModal === 'set' ? (active.locked ? 'Change PIN' : 'Set a PIN') : 'Remove PIN'} onClose={() => setPinModal(null)}>
           <form className="stack" onSubmit={async (e) => {
             e.preventDefault()
-            if (pinModal === 'set') { if (pin.length < 4) return; await setPin(pin); toast('PIN set; data encrypted') }
-            else { await setPin(null); toast('PIN removed; data is no longer encrypted') }
-            setPinModal(null)
+            try {
+              if (pinModal === 'set') { if (pin.length < 4) return; await setPin(pin); toast('PIN set; data encrypted') }
+              else { await setPin(null); toast('PIN removed; data is no longer encrypted') }
+              setPinModal(null)
+            } catch (x) { setPinErr(x instanceof Error ? x.message : 'Could not change the PIN') }
           }}>
             {pinModal === 'set' ? (
               <Field label="New PIN" hint="At least 4 characters. Write it down somewhere safe: it cannot be recovered."><input className="input" type="password" autoComplete="new-password" value={pin} onChange={(e) => setPinText(e.target.value)} /></Field>
             ) : <p className="ink2">The profile will be stored unencrypted again.</p>}
+            {pinErr && <Alert kind="bad">{pinErr}</Alert>}
             <div className="row" style={{ justifyContent: 'flex-end' }}><button type="button" className="btn" onClick={() => setPinModal(null)}>Cancel</button><button className="btn primary" disabled={pinModal === 'set' && pin.length < 4}>Confirm</button></div>
           </form>
         </Modal>
@@ -118,12 +127,18 @@ export function Settings() {
         <Modal title={dlg === 'reset' ? 'Erase all data in this profile?' : `Delete profile “${active.name}”?`} onClose={() => setDlg(null)}>
           <div className="stack">
             <p className="ink2">{dlg === 'reset' ? 'All transactions, cycles and settings in this profile will be permanently erased. The profile itself stays.' : 'The profile and everything in it will be permanently erased from this device.'} Download a backup first if you might need it.</p>
+            {active.sync?.enabled && <Alert kind="warn">{dlg === 'delete' ? 'The encrypted cloud copy will be deleted too.' : 'Sync is on: erasing here also erases this profile on your other devices and in the cloud.'}</Alert>}
+            {dangerErr && <Alert kind="bad">{dangerErr}</Alert>}
             <Field label={`Type “${active.name}” to confirm`}><input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} /></Field>
             <div className="row" style={{ justifyContent: 'flex-end' }}>
               <button className="btn" onClick={() => setDlg(null)}>Cancel</button>
               <button className="btn danger solid" disabled={typed.trim() !== active.name} onClick={async () => {
-                if (dlg === 'reset') { await wipe(); toast('Profile erased') } else { await removeProfile(active.id) }
-                setDlg(null)
+                setDangerErr('')
+                try {
+                  if (dlg === 'delete' && active.sync?.enabled) await disableSync(true) // also removes the cloud copy
+                  if (dlg === 'reset') { await wipe(); toast(active.sync?.enabled ? 'Profile erased (synced to your other devices)' : 'Profile erased') } else { await removeProfile(active.id) }
+                  setDlg(null)
+                } catch { setDangerErr('Could not reach the cloud to delete its copy. Check your connection and sign-in, or turn sync off first.') }
               }}>{dlg === 'reset' ? 'Erase everything' : 'Delete profile'}</button>
             </div>
           </div>

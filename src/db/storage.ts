@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import type { Cycle, Plan, PlannedItem, Transaction } from '../engine/types'
+import type { RemoteProfile, RemoteRow } from '../sync/types'
 import { deriveKey, newSalt, open, seal, type Sealed } from './crypto'
 
 /**
@@ -33,6 +34,17 @@ export interface ProfileMeta {
   check?: Sealed
   /** ISO time of the last backup (download, share or auto-backup folder). Not sensitive, so kept unencrypted. */
   lastBackupAt?: string
+  /** Present only while cloud sync is on for this profile. Cursors only; no financial data. */
+  sync?: SyncMeta
+}
+
+export interface SyncMeta {
+  enabled: true
+  /** Server change counter of the last row received */
+  lastPullR: number
+  /** Newest local change time already uploaded */
+  lastPushU: number
+  lastSyncAt?: string
 }
 
 /**
@@ -75,6 +87,11 @@ class ProfileDB extends Dexie {
 
 const registry = () => new RegistryDB()
 const uid = () => crypto.randomUUID()
+
+/** Strictly increasing change time, so a delete followed by a re-save in the same millisecond still orders correctly. */
+let lastU = 0
+const nextU = () => (lastU = Math.max(Date.now(), lastU + 1))
+const seenU = (u: number) => { if (u > lastU) lastU = u }
 const CHECK_TEXT = 'daily-spend-ok'
 
 export class WrongPinError extends Error {
@@ -149,7 +166,7 @@ export class Session {
 
   private async pack(table: string, id: string, value: unknown): Promise<RecordRow> {
     const k = `${table}:${id}`
-    const u = Date.now()
+    const u = nextU()
     return this.key ? { k, t: table, u, ...(await seal(this.key, value)) } : { k, t: table, u, d: value }
   }
 
@@ -184,12 +201,50 @@ export class Session {
   }
 
   async remove(table: TableName, id: string): Promise<void> {
-    await this.db.records.put({ k: `${table}:${id}`, t: table, u: Date.now(), x: 1 })
+    await this.db.records.put({ k: `${table}:${id}`, t: table, u: nextU(), x: 1 })
   }
 
   /** Delete every record (keeps the profile itself). */
   async wipe(): Promise<void> {
-    await this.db.records.clear()
+    const live = (await this.db.records.toArray()).filter((r) => !r.x)
+    await this.db.records.bulkPut(live.map((r) => ({ k: r.k, t: r.t, u: nextU(), x: 1 as const })))
+  }
+
+  get encrypted() {
+    return this.key !== null
+  }
+
+  /**
+   * Apply rows received from the cloud exactly as they are (still ciphertext). A row is only written if it is
+   * newer than what this device has. Returns how many rows changed locally.
+   */
+  async applyRemote(rows: RemoteRow[]): Promise<number> {
+    if (!rows.length) return 0
+    const local = await this.db.records.bulkGet(rows.map((r) => r.k))
+    const write: RecordRow[] = []
+    rows.forEach((r, i) => {
+      seenU(r.u)
+      const cur = local[i]
+      if (cur && cur.u >= r.u) return
+      write.push(r.x ? { k: r.k, t: r.t, u: r.u, x: 1 } : { k: r.k, t: r.t, u: r.u, iv: r.iv, ct: r.ct })
+    })
+    if (write.length) await this.db.records.bulkPut(write)
+    return write.length
+  }
+
+  /** Update (or clear) this profile's cloud-sync cursors. */
+  async setSync(sync: SyncMeta | undefined): Promise<void> {
+    const reg = registry()
+    try {
+      const cur = (await reg.profiles.get(this.meta.id)) ?? this.meta
+      const next: ProfileMeta = { ...cur }
+      if (sync) next.sync = sync
+      else delete next.sync
+      await reg.profiles.put(next)
+      this.meta = next
+    } finally {
+      reg.close()
+    }
   }
 
   /** Add, change or remove the PIN, re-encrypting every record. */
@@ -288,5 +343,22 @@ export async function storageStatus(): Promise<{ persisted: boolean | null; usag
     }
   } catch {
     return { persisted: null, usageBytes: null, quotaBytes: null }
+  }
+}
+
+/** Create the local copy of a profile that exists in the cloud (the PIN is verified when it is opened). */
+export async function createProfileFromRemote(remote: RemoteProfile): Promise<ProfileMeta> {
+  const r = registry()
+  try {
+    if (await r.profiles.get(remote.id)) throw new Error('This profile is already on this device.')
+    const meta: ProfileMeta = {
+      id: remote.id, name: remote.name, createdAt: new Date().toISOString(), locked: true,
+      salt: remote.salt, check: { iv: remote.checkIv, ct: remote.checkCt },
+      sync: { enabled: true, lastPullR: 0, lastPushU: 0 },
+    }
+    await r.profiles.put(meta)
+    return meta
+  } finally {
+    r.close()
   }
 }

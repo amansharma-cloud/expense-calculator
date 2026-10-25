@@ -1,4 +1,4 @@
-# Daily Spend
+# Daily Spend (expense-calculator)
 
 A private, free, offline-capable web app that tells you **how much you can safely spend today** after your
 savings, investments and fixed bills are protected. It replaces a hand-maintained monthly Excel tracker.
@@ -39,6 +39,13 @@ use a PIN. Use a PIN either way; never host untrusted scripts on the same origin
 
 Never commit real financial files; `.gitignore` already excludes `*.xlsx`, `*.csv` and `backup-*.json`. GitHub Actions (`ci.yml`) runs the tests and build on each push.
 
+## Optional: login + encrypted cloud sync
+
+Off by default. If you set it up ([docs/SYNC-SETUP.md](docs/SYNC-SETUP.md)), invited people sign in with Cloudflare Access and a PIN-protected profile can keep an
+**end-to-end encrypted** copy in Cloudflare D1, restorable on another device. The server stores ciphertext, your email and timestamps only; it rejects plaintext.
+Tests cover token verification, per-user isolation, merging between two devices and "no plaintext reaches the server".
+Local run: `npm run dev:cloud`.
+
 ## Install on your phone
 
 Open the deployed HTTPS address (your `*.pages.dev` link) in the phone's browser.
@@ -72,7 +79,7 @@ Data model: [docs/SCHEMA.md](docs/SCHEMA.md). Excel migration: [docs/EXCEL-MIGRA
 
 ## Privacy, storage and backups
 
-* Everything lives in this browser's IndexedDB. Nothing is transmitted. There are no third-party scripts, and a Content-Security-Policy blocks outside connections (`connect-src 'self'`).
+* Everything lives in this browser's IndexedDB. Nothing is transmitted **unless you turn on cloud sync** (then only encrypted records leave the device). There are no third-party scripts, and a Content-Security-Policy blocks outside connections (`connect-src 'self'`).
 * **Not encrypted unless you set a PIN.** With a PIN, record contents are encrypted with AES-256-GCM using a key derived from the PIN (PBKDF2-SHA-256, 250,000 iterations). The key is held in memory only; the profile locks after 5 minutes in the background.
   A forgotten PIN **cannot be recovered**. Table names and record counts are not encrypted.
 * Profiles on the same device give **organisation, not strong privacy**: without a PIN, anyone using that browser can open any profile. With a PIN they cannot read the data without it.
@@ -87,7 +94,7 @@ Data model: [docs/SCHEMA.md](docs/SCHEMA.md). Excel migration: [docs/EXCEL-MIGRA
 | Not possible here | Why | Alternative |
 |---|---|---|
 | Read bank accounts, UPI apps, SMS or notifications automatically | A web app has no permission to; bank APIs need paid/regulated access | Quick entry, or import a bank/UPI statement file (planned, Phase 2) |
-| Sync between phone and laptop | Would need a server or cloud account | Download a backup, restore it on the other device |
+| Sync between phone and laptop without any setup | Needs a server and a login | Optional encrypted sync (see above), or download a backup and restore it on the other device |
 | Recover a forgotten PIN | Encryption keys never leave your device | Restore from a backup into a new profile |
 | Receipt scanning, AI categorisation | Not built; would need on-device OCR/models | Local keyword rules and learned merchants are used instead |
 
@@ -105,6 +112,7 @@ Data model: [docs/SCHEMA.md](docs/SCHEMA.md). Excel migration: [docs/EXCEL-MIGRA
 | 2 | PWA offline & installable | Done (simple network-first service worker) |
 | 2 | Bank/UPI CSV statement import, recurring-bill forecasts | Not yet built |
 | 3 | Receipt OCR, encrypted backups | Not yet built |
+| 4 | Login (Cloudflare Access) + end-to-end encrypted sync | Done (needs one-time Cloudflare setup) |
 
 ## Known limitations
 

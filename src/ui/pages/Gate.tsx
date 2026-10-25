@@ -7,6 +7,7 @@ import type { Allocation, Paise } from '../../engine/types'
 import { defaultPlan, useStore } from '../../state/store'
 import { AllocationEditor, MoneyInput } from '../components/AllocationEditor'
 import { Alert, Field, Icon } from '../components/common'
+import { CloudRestore } from '../components/CloudSync'
 import { ImportWizard } from '../components/ImportWizard'
 
 const initial = (n: string) => (n.trim()[0] ?? '?').toUpperCase()
@@ -19,6 +20,7 @@ export function ProfilePicker() {
   const [err, setErr] = useState('')
   const [unlockPin, setUnlockPin] = useState('')
   const [adding, setAdding] = useState(profiles.length === 0)
+  const [cloud, setCloud] = useState(false)
   const file = useRef<HTMLInputElement>(null)
 
   if (locked) {
@@ -94,6 +96,8 @@ export function ProfilePicker() {
         )}
         <input ref={file} hidden type="file" accept=".json,application/json" onChange={(e) => restore(e.target.files?.[0])} />
         <button className="btn ghost" onClick={() => file.current?.click()}><Icon name="upload" size={18} /> Restore from a backup file</button>
+        <button className="btn ghost" onClick={() => setCloud(true)}><Icon name="swap" size={18} /> Restore from the cloud (invited accounts)</button>
+        {cloud && <CloudRestore onClose={() => setCloud(false)} />}
         <p className="hint">Profiles separate people’s records on this device. Without a PIN they are not private from someone using the same browser.</p>
       </div>
     </div>
