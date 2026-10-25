@@ -6,6 +6,17 @@ Your domain is registered with another company, so the plan is: add the domain t
 > **Why the order matters.** Browser storage belongs to a web address. The app at `…workers.dev` and the app at
 > `money.yourdomain.com` are different addresses, so the new one starts **empty**. Move the data (step 5) before you stop using the old address.
 
+## If your domain is a free name such as `something.work.gd`
+
+Free-domain services (freedomain.one and similar) give you a *name under a shared domain*. Cloudflare's free plan normally only accepts a
+domain you fully own (`example.com`), not a name under someone else's domain, so the **Add a domain** step below may be refused. Try it; nothing is lost if it is.
+- **If Cloudflare accepts it:** continue as written, and in step 2 use the provider's "custom name servers" option for the two Cloudflare nameservers.
+  Because the zone *is* `something.work.gd`, step 3 can attach that exact name (no extra subdomain needed).
+- **If Cloudflare refuses it** (a message that it is not a registrable/root domain): the app cannot use that name. A CNAME to `workers.dev` does **not** work for a Worker.
+  Options: a real domain (around US$10 a year, cheapest at registrars such as Cloudflare Registrar), or keep the `workers.dev` address.
+- **Risks of a free shared-suffix name:** the provider can suspend it, some office networks and security tools block these suffixes, and if the name is lost, the browser storage for that address is unreachable.
+  Keep the `workers.dev` address working as a fallback and keep backups or cloud sync on.
+
 ## 1. Add the domain to Cloudflare
 1. Cloudflare dashboard → **Domains → Onboard a domain** (older layout: **Add a site**). Enter your domain, choose the **Free** plan.
 2. Cloudflare scans your current DNS and imports the records. **Compare the list with your registrar's DNS page** and add anything missing
