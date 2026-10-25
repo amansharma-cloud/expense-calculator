@@ -68,6 +68,15 @@ The original daily budget, today's limit, spent today and left today are always 
   `exhausted` (remaining ≤ 0), `not-started`, `ended`.
 * A warning appears when no spending has been recorded for 3+ days: the engine does **not** assume records are complete.
 
+## Account balance (dashboard card)
+
+```
+in your account now   = carry-over + salary & credits + one-off income − set-asides paid − spending
+after everything planned = in your account now − set-asides still to pay − expected/planned bills not yet paid
+```
+The second number is what the old sheet's *Balance* column showed (it subtracted every row at once). Paying a set-aside moves it from "still to pay" to "paid" without changing the after-plan balance; paying an expected bill replaces its estimate with the real amount. Released carry-over is not extra money, transfers are ignored, refunds add back.
+**Bank check:** enter the balance your bank shows; the app compares it with *in your account now* and can record the gap as an editable "Balance adjustment" transaction (spending if the bank is lower, money in if higher).
+
 ## Closing balance (carry-over)
 
 `closing = opening carry + salary + credits + income − max(planned, paid) per allocation − spent`.

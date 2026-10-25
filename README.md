@@ -39,6 +39,10 @@ use a PIN. Use a PIN either way; never host untrusted scripts on the same origin
 
 Never commit real financial files; `.gitignore` already excludes `*.xlsx`, `*.csv` and `backup-*.json`. GitHub Actions (`ci.yml`) runs the tests and build on each push.
 
+## Account balance
+
+The dashboard's **Account balance** card shows carry-over + this cycle's money − what is spent or still to pay, as *in your account now* and *after everything planned* (your old sheet's Balance), with a breakdown and a check against the real bank balance. See [docs/CALCULATIONS.md](docs/CALCULATIONS.md).
+
 ## Your own domain
 
 See [docs/CUSTOM-DOMAIN.md](docs/CUSTOM-DOMAIN.md): add the domain to Cloudflare, attach a subdomain to the Worker, extend the Access login to it, then move each person's data (browser storage is per address).

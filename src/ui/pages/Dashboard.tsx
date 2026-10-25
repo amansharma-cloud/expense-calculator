@@ -11,6 +11,7 @@ import { ordinal } from '../components/DayPicker'
 const rs = (paise: number) => formatMoney(Math.floor(paise / 100) * 100)
 import { MoneyInput } from '../components/AllocationEditor'
 import { BackupReminder } from '../components/DataHealth'
+import { BalanceCard } from '../components/BalanceCard'
 import { Alert, Confirm, Field, Icon, Modal, Seg, StatusChip, useToast } from '../components/common'
 import { CategoryBars, DailySpendChart, Legend, RemainingChart } from '../components/charts'
 
@@ -75,6 +76,8 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
           <div><div className="label">Next payday</div><div className="v num">{shortDate(cycle.end)}</div></div>
         </div>
       </section>
+
+      <BalanceCard />
 
       <section className="grid stats" aria-label="Key numbers">
         <div className="card stat"><div className="label">Original daily budget</div><div className="value num">{rs(b.originalDailyPaise)}</div><div className="sub">at cycle start</div></div>

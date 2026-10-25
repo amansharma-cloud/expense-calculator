@@ -51,6 +51,50 @@ export function closingBalance(cycle: Cycle, allTxs: Transaction[]): Paise {
   )
 }
 
+export interface BalanceSummary {
+  openingCarryPaise: Paise
+  /** Salary + other credits + one-off income this cycle */
+  incomePaise: Paise
+  /** Money already paid out against set-asides (rent, EMIs, SIPs…) */
+  setAsidePaidPaise: Paise
+  /** Regular spending (expenses minus refunds) */
+  spentPaise: Paise
+  /** What is in the account right now: opening + income − set-asides paid − spending */
+  inAccountNowPaise: Paise
+  /** Set-asides not yet paid */
+  setAsideDuePaise: Paise
+  /** Expected / planned bills not yet paid (their estimates) */
+  plannedDuePaise: Paise
+  /** What will be left once everything planned is paid: the Excel tracker's "Balance" */
+  afterPlanPaise: Paise
+}
+
+/**
+ * The tracker's balance: carry-over + this cycle's money − everything spent or still to pay.
+ * `inAccountNow` only counts what has really left the account; `afterPlan` also subtracts the unpaid set-asides and
+ * the reserved bill estimates (exactly what the old sheet did by subtracting every row at once).
+ */
+export function balanceSummary(cycle: Cycle, allTxs: Transaction[], planned: PlannedItem[]): BalanceSummary {
+  const txs = cycleTransactions(cycle, allTxs)
+  const paid = allocationPaid(cycle, txs)
+  const income = cycle.takeHomePaise + cycle.extraCreditsPaise + incomeTotal(txs)
+  const setAsidePaid = sum(Object.values(paid))
+  const spent = variableNet(txs)
+  const due = sum(cycle.allocations.map((a) => Math.max(0, a.amountPaise - (paid[a.id] ?? 0))))
+  const plannedDue = sum(planned.filter((p) => !p.done && p.dueDate >= cycle.start && p.dueDate < cycle.end).map((p) => p.amountPaise))
+  const now = cycle.openingCarryPaise + income - setAsidePaid - spent
+  return {
+    openingCarryPaise: cycle.openingCarryPaise,
+    incomePaise: income,
+    setAsidePaidPaise: setAsidePaid,
+    spentPaise: spent,
+    inAccountNowPaise: now,
+    setAsideDuePaise: due,
+    plannedDuePaise: plannedDue,
+    afterPlanPaise: now - due - plannedDue,
+  }
+}
+
 export function computeBudget(
   cycle: Cycle,
   allTxs: Transaction[],
