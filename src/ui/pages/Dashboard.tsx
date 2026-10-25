@@ -44,7 +44,7 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
       <div className="page-head">
         <div>
           <h1>Dashboard</h1>
-          <span className="muted small">{cycle.label ?? 'Salary cycle'} · {cycleLabel(cycle.start, cycle.end)} · day {b.dayNumber} of {b.cycleDays}</span>
+          <span className="muted small">{cycle.label ?? 'Pay cycle'} · {cycleLabel(cycle.start, cycle.end)} · day {b.dayNumber} of {b.cycleDays}</span>
         </div>
         <StatusChip status={b.status} />
       </div>
@@ -67,8 +67,8 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
         </div>
         <div className="hero-meta">
           <div><div className="label">Left this cycle</div><div className="v num">{formatMoney(b.remainingPaise)}</div></div>
-          <div><div className="label">Days to next salary</div><div className="v num">{b.daysLeft}</div></div>
-          <div><div className="label">Next salary</div><div className="v num">{shortDate(cycle.end)}</div></div>
+          <div><div className="label">Days to next pay</div><div className="v num">{b.daysLeft}</div></div>
+          <div><div className="label">Next payday</div><div className="v num">{shortDate(cycle.end)}</div></div>
         </div>
       </section>
 

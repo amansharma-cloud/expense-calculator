@@ -1,14 +1,16 @@
 import { CURRENCIES, getCurrency } from '../../engine/currency'
+import { payOf, validatePay } from '../../engine/pay'
 import { useEffect, useState } from 'react'
 import { cycleLabel } from '../../engine/dates'
 import { formatMoney } from '../../engine/money'
 import type { Plan } from '../../engine/types'
 import { useStore } from '../../state/store'
 import { AllocationEditor, MoneyInput } from '../components/AllocationEditor'
+import { PayFields } from '../components/PayFields'
 import { Alert, Field, useToast } from '../components/common'
 
 export function Budget() {
-  const { plan, savePlan, cycle, budget, updateCycle } = useStore()
+  const { plan, savePlan, cycle, budget, updateCycle, today } = useStore()
   const toast = useToast()
   const [draft, setDraft] = useState<Plan>(plan)
   const [catText, setCatText] = useState('')
@@ -17,7 +19,7 @@ export function Budget() {
   const dirty = JSON.stringify(draft) !== JSON.stringify(plan)
   const total = draft.allocations.reduce((s, a) => s + a.amountPaise, 0)
   const spendable = draft.takeHomePaise + Math.min(draft.releasedCarryPaise, cycle?.openingCarryPaise ?? 0) + (cycle?.extraCreditsPaise ?? 0) - total
-  const bad = draft.allocations.some((a) => !a.name.trim()) || draft.salaryDay < 1 || draft.salaryDay > 31
+  const bad = draft.allocations.some((a) => !a.name.trim()) || !!validatePay(payOf(draft))
 
   return (
     <div className="stack">
@@ -28,18 +30,17 @@ export function Budget() {
       </Alert>
 
       <section className="card stack">
-        <h2>Salary</h2>
+        <h2>Pay &amp; currency</h2>
         <Field label="Currency" hint="Changing the currency only changes how amounts are written. Existing numbers are not converted.">
           <select className="input" value={draft.currency ?? 'INR'} onChange={(e) => setDraft({ ...draft, currency: e.target.value })}>
             {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.name} ({c.symbol.trim()})</option>)}
           </select>
         </Field>
-        <div className="form-grid two">
-          <Field label={`Monthly take-home salary (${getCurrency().symbol})`}><MoneyInput label="Monthly take-home salary" value={draft.takeHomePaise} onChange={(p) => p !== null && setDraft({ ...draft, takeHomePaise: p })} /></Field>
-          <Field label="Salary credit day" hint="Cycles run from this day to the day before the next one. 31 means “last day” in shorter months.">
-            <input className="input num" type="number" min={1} max={31} value={draft.salaryDay} onChange={(e) => setDraft({ ...draft, salaryDay: Number(e.target.value) })} />
-          </Field>
-        </div>
+        <PayFields pay={payOf(draft)} today={today} onChange={(pay) => setDraft({ ...draft, pay: pay.kind === 'monthly' ? undefined : pay, salaryDay: pay.kind === 'monthly' ? pay.day : draft.salaryDay })} />
+        <p className="hint">A new pay frequency starts with your next cycle; the current one keeps its dates.</p>
+        <Field label={payOf(draft).kind === 'monthly' ? `Monthly take-home salary (${getCurrency().symbol})` : `Take-home pay each pay period (${getCurrency().symbol})`}>
+          <MoneyInput label="Take-home pay" value={draft.takeHomePaise} onChange={(p) => p !== null && setDraft({ ...draft, takeHomePaise: p })} />
+        </Field>
         {cycle && (
           <div className="form-grid two">
             <Field label={`Other credits this cycle (${getCurrency().symbol})`} hint="Interest, refunds to your account, payouts from others.">
@@ -53,8 +54,8 @@ export function Budget() {
       </section>
 
       <section className="card stack">
-        <div><h2>Set aside every cycle</h2><p className="hint">Rent, EMIs, subscriptions, SIPs, savings, emergency fund, goals. These come out of your income first and are never offered as daily spending.</p></div>
-        <AllocationEditor items={draft.allocations} onChange={(allocations) => setDraft({ ...draft, allocations })} />
+        <div><h2>Set aside every cycle</h2><p className="hint">Rent, EMIs, subscriptions, SIPs, savings, emergency fund, goals. These come out of your income first and are never offered as daily spending.{payOf(draft).kind !== 'monthly' ? ' Give a monthly bill a due day and it is set aside only in the pay period that contains that day.' : ''}</p></div>
+        <AllocationEditor items={draft.allocations} onChange={(allocations) => setDraft({ ...draft, allocations })} showDue={payOf(draft).kind !== 'monthly'} />
       </section>
 
       <section className="card">

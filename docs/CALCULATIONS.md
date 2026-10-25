@@ -1,12 +1,12 @@
 # Calculation rules
 
 All logic is in `src/engine/` (pure TypeScript, no UI imports). Screens only read results from
-`computeBudget()`, `closingBalance()`, `dailySeries()`, `spendByCategory()`. Money is **integer paise**; dates are
+`computeBudget()`, `closingBalance()`, `dailySeries()`, `spendByCategory()`. Money is an **integer in minor units** (paise, cents…); the currency only affects display and input, never the stored number; dates are
 local `YYYY-MM-DD` strings (no time-zone arithmetic).
 
 ## Cycle
 
-A cycle runs from one salary date to the day before the next (`cycleBounds`). A salary day that does not exist in a
+A cycle runs from one payday to the day before the next. Pay can be monthly (`cycleBounds`), twice a month, or every 7/14 days (`cycleBoundsFor` in `dates.ts`; the 2-weekly rhythm counts from a payday you enter). A set-aside with a due day of the month applies only in the cycle that contains that day (`allocationsForCycle`); with monthly pay everything applies each cycle. After a pay-frequency change the next cycle starts where the previous one ended, so no day is counted twice (`nextCycleBounds`). A salary day that does not exist in a
 month (29/30/31) uses that month's last day. A cycle stores its own snapshot of salary, credits, carry-over and
 allocations, so later changes to settings never alter closed cycles. Changing the plan edits only the *current*
 cycle and the template for future ones.

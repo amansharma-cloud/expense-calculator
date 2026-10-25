@@ -25,11 +25,11 @@ export function MoneyInput({ value, onChange, id, label, allowZero = true, inval
 
 const KIND_LABEL: Record<AllocationKind, string> = { fixed: 'Fixed bill / EMI', investment: 'Investment / saving', reserved: 'Reserved / goal' }
 
-export function AllocationEditor({ items, onChange }: { items: Allocation[]; onChange: (a: Allocation[]) => void }) {
+export function AllocationEditor({ items, onChange, showDue = false }: { items: Allocation[]; onChange: (a: Allocation[]) => void; showDue?: boolean }) {
   const update = (id: string, patch: Partial<Allocation>) => onChange(items.map((a) => (a.id === id ? { ...a, ...patch } : a)))
   return (
     <div className="stack">
-      {items.length === 0 && <p className="muted">Nothing here yet. Add rent, EMIs, SIPs, savings… anything you want protected before you spend.</p>}
+      {items.length === 0 && <p className="muted">Nothing here yet. Add rent, EMIs, SIPs, savings… anything you want protected before you spend.{showDue ? ' Give monthly bills a due day so they are set aside only in the pay period that contains it.' : ''}</p>}
       {items.map((a) => (
         <div key={a.id} className="row" style={{ alignItems: 'flex-end' }}>
           <div className="field" style={{ flex: '2 1 160px' }}>
@@ -43,9 +43,16 @@ export function AllocationEditor({ items, onChange }: { items: Allocation[]; onC
             </select>
           </div>
           <div className="field" style={{ flex: '1 1 120px' }}>
-            <label className="lbl" htmlFor={'a' + a.id}>Per cycle ({getCurrency().symbol})</label>
+            <label className="lbl" htmlFor={'a' + a.id}>{showDue ? 'Amount' : 'Per cycle'} ({getCurrency().symbol})</label>
             <MoneyInput id={'a' + a.id} label={`${a.name} amount`} value={a.amountPaise} onChange={(p) => p !== null && update(a.id, { amountPaise: p })} />
           </div>
+          {showDue && (
+            <div className="field" style={{ flex: '0 1 110px' }}>
+              <label className="lbl" htmlFor={'d' + a.id}>Due day</label>
+              <input id={'d' + a.id} className="input num" inputMode="numeric" placeholder="every cycle" value={a.dueDay ?? ''}
+                onChange={(e) => { const n = Number(e.target.value.replace(/\D/g, '').slice(0, 2)); update(a.id, { dueDay: n >= 1 && n <= 31 ? n : undefined }) }} />
+            </div>
+          )}
           <button type="button" className="btn ghost danger" aria-label={`Remove ${a.name}`} onClick={() => onChange(items.filter((x) => x.id !== a.id))}><Icon name="trash" size={18} /></button>
         </div>
       ))}

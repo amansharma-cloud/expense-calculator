@@ -2,14 +2,16 @@ import { CURRENCIES, getCurrency, setActiveCurrency } from '../../engine/currenc
 import { useRef, useState } from 'react'
 import { parseBackup } from '../../db/backup'
 import { createProfile, openProfile, WrongPinError } from '../../db/storage'
-import { cycleBounds, cycleLabel } from '../../engine/dates'
+import { cycleBoundsFor, cycleLabel } from '../../engine/dates'
+import { validatePay } from '../../engine/pay'
 import { formatMoney } from '../../engine/money'
-import type { Allocation, Paise } from '../../engine/types'
+import type { Allocation, Paise, PayCycle } from '../../engine/types'
 import { defaultPlan, useStore } from '../../state/store'
 import { AllocationEditor, MoneyInput } from '../components/AllocationEditor'
 import { Alert, Field, Icon } from '../components/common'
 import { CloudRestore } from '../components/CloudSync'
 import { ImportWizard } from '../components/ImportWizard'
+import { PayFields } from '../components/PayFields'
 
 const initial = (n: string) => (n.trim()[0] ?? '?').toUpperCase()
 
@@ -111,7 +113,7 @@ export function Setup() {
   const [step, setStep] = useState(0)
   const [mode, setMode] = useState<'manual' | 'excel'>('manual')
   const [salary, setSalary] = useState<Paise>(0)
-  const [day, setDay] = useState(25)
+  const [pay, setPay] = useState<PayCycle>({ kind: 'monthly', day: 25 })
   const [items, setItems] = useState<Allocation[]>([])
   const [carry, setCarry] = useState<Paise>(0)
   const [err, setErr] = useState('')
@@ -120,17 +122,17 @@ export function Setup() {
 
   const total = items.reduce((s, a) => s + a.amountPaise, 0)
   const next = () => {
-    if (step === 0 && (salary <= 0 || day < 1 || day > 31)) return setErr('Enter your monthly take-home salary and the day it is credited (1–31).')
+    if (step === 0 && (salary <= 0 || validatePay(pay))) return setErr(salary <= 0 ? 'Enter your take-home pay for one pay period.' : validatePay(pay) ?? '')
     if (step === 1 && items.some((a) => !a.name.trim())) return setErr('Give every item a name, or remove it.')
     setErr('')
     setStep(step + 1)
   }
   const finish = async () => {
     const clean = items.filter((a) => a.amountPaise > 0 && a.name.trim())
-    const next = { ...defaultPlan(), ...plan, currency: cur, salaryDay: day, takeHomePaise: salary, allocations: clean }
+    const next = { ...defaultPlan(), ...plan, currency: cur, salaryDay: pay.kind === 'monthly' ? pay.day : 25, pay: pay.kind === 'monthly' ? undefined : pay, takeHomePaise: salary, allocations: clean }
     await startCycle({ takeHomePaise: salary, extraCreditsPaise: 0, openingCarryPaise: carry, releasedCarryPaise: 0 }, next)
   }
-  const bounds = cycleBounds(today, day)
+  const bounds = cycleBoundsFor(today, pay)
 
   if (mode === 'excel') {
     return (
@@ -153,10 +155,8 @@ export function Setup() {
               {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.name} ({c.symbol.trim()})</option>)}
             </select>
           </Field>
-          <Field label={`Monthly take-home salary (${getCurrency().symbol})`}><MoneyInput label="Monthly take-home salary" value={salary} onChange={(p) => setSalary(p ?? 0)} /></Field>
-          <Field label="Salary credit day of the month" hint="Your cycle runs from one salary day to the day before the next. Days like 31 use the last day of shorter months.">
-            <input className="input num" type="number" min={1} max={31} value={day} onChange={(e) => setDay(Number(e.target.value))} />
-          </Field>
+          <PayFields pay={pay} onChange={setPay} today={today} />
+          <Field label={pay.kind === 'monthly' ? `Monthly take-home salary (${getCurrency().symbol})` : `Take-home pay each pay period (${getCurrency().symbol})`}><MoneyInput label="Take-home pay" value={salary} onChange={(p) => setSalary(p ?? 0)} /></Field>
           <Field label={`Money already in your account / carry-over (${getCurrency().symbol}, optional)`} hint="Stays as a reserve. It is not added to your daily limit unless you release part of it later.">
             <MoneyInput label="Carry-over" value={carry} onChange={(p) => setCarry(p ?? 0)} />
           </Field>
@@ -165,8 +165,8 @@ export function Setup() {
       )}
       {step === 1 && (
         <>
-          <p className="ink2">What is already spoken for each month? These are set aside first and never offered as daily spending.</p>
-          <AllocationEditor items={items} onChange={setItems} />
+          <p className="ink2">What is already spoken for in each pay period? These are set aside first and never offered as daily spending.</p>
+          <AllocationEditor items={items} onChange={setItems} showDue={pay.kind !== 'monthly'} />
         </>
       )}
       {step === 2 && (
@@ -191,8 +191,8 @@ export function Setup() {
 
 /** Shown when no cycle covers today (e.g. salary day just passed, or after importing history). */
 export function NewCycle() {
-  const { plan, today, suggestedOpeningCarry, startCycle, data } = useStore()
-  const { start, end } = cycleBounds(today, plan.salaryDay)
+  const { plan, suggestedOpeningCarry, startCycle, data, nextBounds } = useStore()
+  const { start, end } = nextBounds
   const [salary, setSalary] = useState<Paise>(plan.takeHomePaise)
   const [extra, setExtra] = useState<Paise>(0)
   const [carry, setCarry] = useState<Paise>(suggestedOpeningCarry)
@@ -202,7 +202,7 @@ export function NewCycle() {
 
   return (
     <div className="gate"><div className="card stack" style={{ maxWidth: 640 }}>
-      <h1>Start your new salary cycle</h1>
+      <h1>Start your new pay cycle</h1>
       <p className="ink2"><b>{cycleLabel(start, end)}</b></p>
       {prev && <Alert kind="info">Last cycle ({prev.label ?? cycleLabel(prev.start, prev.end)}) closed with <b className="num">{formatMoney(suggestedOpeningCarry, { decimals: true })}</b>. It is filled in as the carry-over; change it if your bank balance differs.</Alert>}
       <div className="form-grid two">

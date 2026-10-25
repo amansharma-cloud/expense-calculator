@@ -10,6 +10,7 @@ export interface Allocation {
   name: string
   kind: AllocationKind
   amountPaise: Paise
+  /** Day of the month this is due. With non-monthly pay it only applies in the cycle that contains that day. */
   dueDay?: number
 }
 
@@ -72,10 +73,19 @@ export interface Cycle {
   sheetBalancePaise?: Paise
 }
 
+/** How often pay arrives. A cycle runs from one payday to the day before the next. */
+export type PayCycle =
+  | { kind: 'monthly'; day: number }
+  | { kind: 'semimonthly'; days: [number, number] }
+  | { kind: 'interval'; everyDays: 7 | 14; anchor: ISODate }
+
 export interface Plan {
   /** ISO 4217 code of a supported currency (see currency.ts). Missing = INR. */
   currency?: string
+  /** Pay day for monthly pay (also used by the Excel importer). */
   salaryDay: number
+  /** Pay frequency. Missing = monthly on `salaryDay`. */
+  pay?: PayCycle
   takeHomePaise: Paise
   releasedCarryPaise: Paise
   allocations: Allocation[]

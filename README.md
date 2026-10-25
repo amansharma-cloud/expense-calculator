@@ -39,6 +39,12 @@ use a PIN. Use a PIN either way; never host untrusted scripts on the same origin
 
 Never commit real financial files; `.gitignore` already excludes `*.xlsx`, `*.csv` and `backup-*.json`. GitHub Actions (`ci.yml`) runs the tests and build on each push.
 
+## Currency, pay frequency and backups
+
+* **Currency:** each profile picks its own (INR, CAD, USD, GBP, EUR, AUD, NZD, SGD, AED). It controls symbols, digit grouping (₹12,34,567 vs $1,234,567.50) and what you can type in quick entry ("Tim Hortons $4.50"). Changing it relabels amounts; it never converts them.
+* **Pay frequency:** monthly, twice a month, every 2 weeks, or weekly. Each pay period is one budget cycle, and the daily limit runs to the next payday. Monthly bills can have a due day so they are set aside only in the pay period that contains it.
+* **Backups:** *Download/Share backup* makes a **JSON file** that this app can restore (it is not an Excel file; the Excel export on Reports is for reading and sharing). On a phone, Share opens the share sheet so you can email it to yourself or save it to Drive. With cloud sync on, the server also keeps one **encrypted restore point per day for 14 days** (Settings → Account & cloud sync → Restore points), so a mistake that has synced to every device can be undone.
+
 ## Optional: login + encrypted cloud sync
 
 Off by default. If you set it up ([docs/SYNC-SETUP.md](docs/SYNC-SETUP.md)), invited people sign in with Cloudflare Access and a PIN-protected profile can keep an
@@ -112,7 +118,8 @@ Data model: [docs/SCHEMA.md](docs/SCHEMA.md). Excel migration: [docs/EXCEL-MIGRA
 | 2 | PWA offline & installable | Done (simple network-first service worker) |
 | 2 | Bank/UPI CSV statement import, recurring-bill forecasts | Not yet built |
 | 3 | Receipt OCR, encrypted backups | Not yet built |
-| 4 | Login (Cloudflare Access) + end-to-end encrypted sync | Done (needs one-time Cloudflare setup) |
+| 4 | Login (Cloudflare Access) + end-to-end encrypted sync, daily restore points | Done (needs one-time Cloudflare setup) |
+| 4 | Currency selector, pay frequency (monthly / twice a month / 2-weekly / weekly) | Done |
 
 ## Known limitations
 

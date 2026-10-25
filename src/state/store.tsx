@@ -5,7 +5,8 @@ import {
 } from '../db/storage'
 import { closingBalance, computeBudget } from '../engine/budget'
 import { setActiveCurrency } from '../engine/currency'
-import { cycleBounds, todayISO } from '../engine/dates'
+import { todayISO } from '../engine/dates'
+import { allocationsForCycle, nextCycleBounds, payOf } from '../engine/pay'
 import { DEFAULT_CATEGORIES } from '../engine/quick'
 import type { Allocation, BudgetResult, Cycle, Paise, Plan, PlannedItem, Transaction } from '../engine/types'
 import type { ImportPlan } from '../import/excel'
@@ -52,6 +53,8 @@ interface Store {
   cycle: Cycle | null
   budget: BudgetResult | null
   suggestedOpeningCarry: Paise
+  /** Dates of the cycle that starts next (never overlaps an existing cycle, e.g. after changing pay frequency). */
+  nextBounds: { start: string; end: string }
   categories: string[]
   addTx(t: Omit<Transaction, 'id' | 'createdAt'>): Promise<Transaction>
   updateTx(t: Transaction): Promise<void>
@@ -397,7 +400,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await s().put('plan', 'plan', p)
     let nextCycle: Cycle | null = null
     if (cycle) {
-      nextCycle = { ...cycle, takeHomePaise: p.takeHomePaise, releasedCarryPaise: Math.min(p.releasedCarryPaise, Math.max(0, cycle.openingCarryPaise)), allocations: p.allocations }
+      nextCycle = { ...cycle, takeHomePaise: p.takeHomePaise, releasedCarryPaise: Math.min(p.releasedCarryPaise, Math.max(0, cycle.openingCarryPaise)), allocations: allocationsForCycle(p.allocations, cycle.start, cycle.end, payOf(p)) }
       await s().put('cycles', nextCycle.start, nextCycle)
     }
     setData((d) => ({ ...d, plan: p, cycles: nextCycle ? d.cycles.map((c) => (c.start === nextCycle!.start ? nextCycle! : c)) : d.cycles }))
@@ -405,11 +408,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const startCycle: Store['startCycle'] = async (input, planOverride) => {
     const pl = planOverride ?? plan
-    const { start, end } = cycleBounds(today, pl.salaryDay)
+    const pay = payOf(pl)
+    const { start, end } = nextCycleBounds(today, pay, data.cycles)
     const c: Cycle = {
       start, end, ...input,
       releasedCarryPaise: Math.min(input.releasedCarryPaise, Math.max(0, input.openingCarryPaise)),
-      allocations: pl.allocations.map((a: Allocation) => ({ ...a })),
+      allocations: allocationsForCycle(pl.allocations, start, end, pay),
       source: 'app',
     }
     await s().put('cycles', c.start, c)
@@ -472,7 +476,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value: Store = {
     profiles, active, locked, ready, refreshProfiles, selectProfile, addProfile, removeProfile, renameActive, setPin, lock, switchAway,
-    data, today, plan, cycle, budget, suggestedOpeningCarry, categories,
+    data, today, plan, cycle, budget, suggestedOpeningCarry, nextBounds: nextCycleBounds(today, payOf(plan), data.cycles), categories,
     addTx, updateTx, deleteTx, addPlanned, deletePlanned, payPlanned, savePlan, startCycle, updateCycle, applyImport, replaceAll, wipe, markBackedUp,
     exportData: () => data,
     sync: syncState, cloudCheck, cloudProfiles, enableSync, disableSync, syncNow: runSync, restoreFromCloud,

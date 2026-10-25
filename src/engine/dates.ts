@@ -1,4 +1,4 @@
-import type { ISODate } from './types'
+import type { ISODate, PayCycle } from './types'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -62,4 +62,25 @@ export function shortDate(s: ISODate): string {
 
 export function cycleLabel(start: ISODate, end: ISODate): string {
   return `${shortDate(start)} – ${shortDate(addDays(end, -1))}`
+}
+
+/** The pay cycle (start inclusive, end exclusive) containing `date`, for any pay frequency. */
+export function cycleBoundsFor(date: ISODate, pay: PayCycle): { start: ISODate; end: ISODate } {
+  if (pay.kind === 'monthly') return cycleBounds(date, pay.day)
+  if (pay.kind === 'interval') {
+    const k = Math.floor(diffDays(pay.anchor, date) / pay.everyDays)
+    const start = addDays(pay.anchor, k * pay.everyDays)
+    return { start, end: addDays(start, pay.everyDays) }
+  }
+  // semimonthly: paydays are the two chosen days of every month (clamped in short months)
+  const [y, m] = date.split('-').map(Number)
+  const days = new Set<ISODate>()
+  for (const delta of [-1, 0, 1]) {
+    const [yy, mm] = shiftMonth(y, m, delta)
+    for (const d of pay.days) days.add(salaryDateIn(yy, mm, d))
+  }
+  const sorted = [...days].sort()
+  const start = [...sorted].reverse().find((d) => d <= date)!
+  const end = sorted.find((d) => d > date)!
+  return { start, end }
 }

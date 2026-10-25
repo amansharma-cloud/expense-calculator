@@ -10,6 +10,7 @@ Until then `/api/*` answers "not configured" and the Settings page says cloud sy
 * **Sync:** a profile with a PIN can upload its records. They are encrypted on the device first (AES-256-GCM, key from the PIN), so the server stores
   ciphertext only. The API refuses any record that is not ciphertext. Records merge per item: the newer change wins, deletes included.
 * **What Cloudflare can see:** your email, how many records, when they changed, the profile name, and the (non-secret) salt used for the PIN. Not amounts, merchants or notes.
+* **Restore points:** the first time a profile syncs on a new (UTC) day, the server copies its current encrypted records as that day's restore point (14 days kept, newest first). Restore one from Settings to rewind a profile on every device. They are ciphertext too, so they need the PIN. No scheduled job or extra setup is needed.
 * **Forgotten PIN:** the cloud copy cannot be decrypted either. Keep backups.
 
 ## One-time setup (about 15 minutes)
