@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { cycleTransactions, dailySeries, spendByCategory } from '../../engine/budget'
 import { cycleLabel, isValidDate, shortDate } from '../../engine/dates'
 import { formatMoney, parseAmount, validateAmount } from '../../engine/money'
-import type { PayMethod, PlannedItem } from '../../engine/types'
+import type { Allocation, PayMethod, PlannedItem } from '../../engine/types'
 import { useStore } from '../../state/store'
 
 /** Limits are shown in whole rupees, rounded down, so the app never nudges you to overspend. */
@@ -25,11 +25,12 @@ function Ring({ spent, limit, over }: { spent: number; limit: number; over: bool
 }
 
 export function Dashboard({ onAdd }: { onAdd: () => void }) {
-  const { cycle, budget, data, today, payPlanned, deletePlanned, addPlanned } = useStore()
+  const { cycle, budget, data, today, payPlanned, deletePlanned, addPlanned, addTx } = useStore()
   const toast = useToast()
   const [planning, setPlanning] = useState(false)
   const [delPlan, setDelPlan] = useState<string | null>(null)
   const [paying, setPaying] = useState<PlannedItem | null>(null)
+  const [payingAlloc, setPayingAlloc] = useState<Allocation | null>(null)
   if (!cycle || !budget) return null
   const b = budget
   const txs = cycleTransactions(cycle, data.transactions)
@@ -109,17 +110,29 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
         </section>
         <section className="card" aria-label="Set aside">
           <h2>Set aside this cycle</h2>
-          <p className="hint">Protected before spending. Paid = recorded against the item.</p>
-          {cycle.allocations.length === 0 && <p className="muted">Nothing set aside. Add bills and investments under Budget.</p>}
+          <p className="hint">Already taken out of your spendable budget. Tap <b>Paid</b> when you pay one; it is ticked off here and not counted as spending.</p>
+          {cycle.allocations.filter((a) => a.amountPaise > 0).length === 0 && <p className="muted">Nothing set aside. Add bills and investments under Budget.</p>}
           {kinds.map(([k, title]) => {
             const items = cycle.allocations.filter((a) => a.kind === k && a.amountPaise > 0)
             if (!items.length) return null
             const planned = items.reduce((s, a) => s + a.amountPaise, 0)
             const paid = items.reduce((s, a) => s + Math.min(a.amountPaise, b.allocationPaid[a.id] ?? 0), 0)
             return (
-              <div key={k} style={{ margin: '10px 0' }}>
+              <div key={k} style={{ margin: '12px 0' }}>
                 <div className="row between"><b>{title}</b><span className="num small">{formatMoney(paid)} of {formatMoney(planned)}</span></div>
                 <div className="bar" role="progressbar" aria-valuenow={Math.round((paid / planned) * 100)} aria-valuemin={0} aria-valuemax={100} aria-label={`${title} paid`}><i style={{ width: `${(paid / planned) * 100}%`, background: 'var(--s3)' }} /></div>
+                <ul className="list">
+                  {items.map((a) => {
+                    const done = b.allocationPaid[a.id] ?? 0
+                    const full = done >= a.amountPaise
+                    return (
+                      <li key={a.id}>
+                        <div className="grow"><div className="title">{a.name}</div><div className="small muted">{formatMoney(Math.max(0, done))} of {formatMoney(a.amountPaise)}{a.dueDay ? ` · due day ${a.dueDay}` : ''}</div></div>
+                        {full ? <span className="chip good"><Icon name="check" size={14} /> Paid</span> : <button className="btn sm" onClick={() => setPayingAlloc(a)}>Paid</button>}
+                      </li>
+                    )
+                  })}
+                </ul>
               </div>
             )
           })}
@@ -186,6 +199,18 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
           toast(`Recorded ${formatMoney(amountPaise)} for ${paying.title}`)
         }} />
       )}
+      {payingAlloc && (
+        <PayDialog
+          item={{ id: payingAlloc.id, title: payingAlloc.name, amountPaise: Math.max(0, payingAlloc.amountPaise - (b.allocationPaid[payingAlloc.id] ?? 0)), dueDate: today, done: false }}
+          noun="Set aside" today={today} onClose={() => setPayingAlloc(null)}
+          onPay={async (amountPaise, date, method) => {
+            const a = payingAlloc
+            await addTx({ date, time: new Date().toTimeString().slice(0, 5), amountPaise, type: 'expense', category: a.name, merchant: a.name, method, note: 'Set-aside paid', allocationId: a.id, source: 'manual' })
+            setPayingAlloc(null)
+            toast(`${a.name}: ${formatMoney(amountPaise)} marked paid (not counted as spending)`)
+          }}
+        />
+      )}
       {planning && <PlannedForm onClose={() => setPlanning(false)} onSave={async (p) => { await addPlanned(p); setPlanning(false) }} defaultDate={today} />}
       {delPlan && <Confirm title="Remove planned item?" body="It will no longer be reserved from your daily limit." confirmLabel="Remove" onCancel={() => setDelPlan(null)} onConfirm={async () => { await deletePlanned(delPlan); setDelPlan(null) }} />}
     </div>
@@ -212,7 +237,7 @@ function PlannedForm({ onClose, onSave, defaultDate }: { onClose: () => void; on
 }
 
 /** Record what a planned or expected bill really cost. The estimate was reserved; the real amount replaces it. */
-function PayDialog({ item, today, onClose, onPay }: { item: PlannedItem; today: string; onClose: () => void; onPay: (amountPaise: number, date: string, method: PayMethod) => void }) {
+function PayDialog({ item, today, noun = 'Estimate', onClose, onPay }: { item: PlannedItem; today: string; noun?: string; onClose: () => void; onPay: (amountPaise: number, date: string, method: PayMethod) => void }) {
   const [amt, setAmt] = useState(item.amountPaise)
   const [date, setDate] = useState(today)
   const [method, setMethod] = useState<PayMethod>('upi')
@@ -222,10 +247,10 @@ function PayDialog({ item, today, onClose, onPay }: { item: PlannedItem; today: 
   return (
     <Modal title={`Paid: ${item.title}`} onClose={onClose}>
       <form className="stack" noValidate onSubmit={(e) => { e.preventDefault(); setSub(true); if (err || !isValidDate(date)) return; onPay(amt, date, method) }}>
-        <Field label={`Amount you paid (${getCurrency().symbol})`} error={sub ? err : null} hint={`Estimate was ${formatMoney(item.amountPaise)}.`}>
+        <Field label={`Amount you paid (${getCurrency().symbol})`} error={sub ? err : null} hint={`${noun} was ${formatMoney(item.amountPaise)}.`}>
           <MoneyInput label="Amount paid" value={amt} onChange={(p) => setAmt(p ?? 0)} />
         </Field>
-        {amt > 0 && diff !== 0 && <p className="hint">{diff > 0 ? `${formatMoney(diff)} more than the estimate: it comes out of your remaining budget.` : `${formatMoney(-diff)} less than the estimate: it goes back to your remaining budget.`}</p>}
+        {amt > 0 && diff !== 0 && <p className="hint">{noun === 'Set aside' ? (diff > 0 ? `${formatMoney(diff)} more than set aside: the extra comes out of your remaining budget.` : `${formatMoney(-diff)} less than set aside: it is a part payment.`) : diff > 0 ? `${formatMoney(diff)} more than the estimate: it comes out of your remaining budget.` : `${formatMoney(-diff)} less than the estimate: it goes back to your remaining budget.`}</p>}
         <Field label="Date" error={sub && !isValidDate(date) ? 'Enter a valid date' : null}><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
         <Field label="Paid with"><Seg label="Payment method" value={method} onChange={setMethod} options={[['upi', 'UPI'], ['card', 'Card'], ['cash', 'Cash'], ['bank', 'Bank'], ['other', 'Other']]} /></Field>
         <div className="row" style={{ justifyContent: 'flex-end' }}><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn primary">Record payment</button></div>

@@ -3,6 +3,7 @@ import { exportWorkbook, transactionsToCSV } from '../../db/backup'
 import { findDuplicates, outflowByCategory } from '../../engine/budget'
 import { addDays, cycleLabel, shortDate } from '../../engine/dates'
 import { formatMoney } from '../../engine/money'
+import { matchAllocation } from '../../engine/commitments'
 import type { Transaction } from '../../engine/types'
 import { useStore } from '../../state/store'
 import { Confirm, download, Icon, Modal, useToast } from '../components/common'
@@ -126,6 +127,12 @@ export function Transactions() {
                       </div>
                     </div>
                     <span className={`amt num ${t.type === 'refund' || t.type === 'income' ? 'in' : ''}`}>{t.type === 'refund' || t.type === 'income' ? '+' : ''}{formatMoney(t.amountPaise)}</span>
+                    {(() => {
+                      if (t.type !== 'expense' || t.allocationId) return null
+                      const cyc = data.cycles.find((c) => t.date >= c.start && t.date < c.end)
+                      const m = cyc && matchAllocation(t.merchant, t.category, t.amountPaise, cyc.allocations)
+                      return m?.confident ? <button className="btn sm" title="Count this as the set-aside payment instead of spending" onClick={async () => { await updateTx({ ...t, allocationId: m.allocation.id }); toast(`Counted as ${m.allocation.name}, not spending`) }}>Count as {m.allocation.name}</button> : null
+                    })()}
                     <button className="btn ghost sm" aria-label={`Edit ${t.merchant || t.category}`} onClick={() => setEditing(t)}><Icon name="edit" size={16} /></button>
                     <button className="btn ghost sm" aria-label={`Delete ${t.merchant || t.category}`} onClick={() => setDeleting(t)}><Icon name="trash" size={16} /></button>
                   </li>

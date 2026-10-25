@@ -56,10 +56,10 @@ export function Budget() {
       </section>
 
       <section className="card stack">
-        <div><h2>Set aside every cycle</h2><p className="hint">Rent, EMIs, subscriptions, SIPs, savings, emergency fund, goals. These come out of your income first and are never offered as daily spending.{payOf(draft).kind !== 'monthly' ? ' Give a monthly bill a due day and it is set aside only in the pay period that contains that day.' : ''}</p></div>
+        <div><h2>Set aside every cycle</h2><p className="hint">Rent, EMIs, subscriptions, SIPs, savings, emergency fund, goals. These come out of your income first and are never offered as daily spending. To record a payment, use <b>Paid</b> on the dashboard (or tick “set-aside payment” when adding an expense). <b>Varies monthly</b> / <b>Treat as spending</b> are only for items whose amount changes every month.{payOf(draft).kind !== 'monthly' ? ' Give a monthly bill a due day and it is set aside only in the pay period that contains that day.' : ''}</p></div>
         <AllocationEditor items={draft.allocations} onChange={(allocations) => setDraft({ ...draft, allocations })} showDue={payOf(draft).kind !== 'monthly'}
           onConvert={dirty ? undefined : (a, to) => setMove({ a, to })} />
-        {dirty && <p className="hint">Save your changes to see the “Amount varies” and “Make spending” options for each item.</p>}
+        {dirty && <p className="hint">Save your changes to see the “Varies monthly” and “Treat as spending” options for each item.</p>}
       </section>
 
       <section className="card stack">

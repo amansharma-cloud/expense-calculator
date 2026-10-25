@@ -59,8 +59,8 @@ export function AllocationEditor({ items, onChange, showDue = false, onConvert }
           )}
           {onConvert && a.kind === 'fixed' && a.name.trim() && (
             <div className="row" style={{ gap: 4 }}>
-              <button type="button" className="btn sm" title="The amount changes every month (electricity, recharge…): reserve an estimate until you pay it" onClick={() => onConvert(a, 'expected')}>Amount varies</button>
-              <button type="button" className="btn ghost sm" title="Treat it as ordinary spending" onClick={() => onConvert(a, 'spending')}>Make spending</button>
+              <button type="button" className="btn sm" title="The amount changes every month (electricity, recharge…): reserve an estimate until you pay it" onClick={() => onConvert(a, 'expected')}>Varies monthly</button>
+              <button type="button" className="btn ghost sm" title="Treat it as ordinary spending" onClick={() => onConvert(a, 'spending')}>Treat as spending</button>
             </div>
           )}
           <button type="button" className="btn ghost danger" aria-label={`Remove ${a.name}`} onClick={() => onChange(items.filter((x) => x.id !== a.id))}><Icon name="trash" size={18} /></button>

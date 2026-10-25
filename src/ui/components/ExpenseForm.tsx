@@ -2,6 +2,7 @@ import { getCurrency } from '../../engine/currency'
 import { useMemo, useState } from 'react'
 import { nowHM, isValidDate } from '../../engine/dates'
 import { formatMoney, parseAmount, validateAmount } from '../../engine/money'
+import { matchAllocation } from '../../engine/commitments'
 import { parseQuickEntry, suggestCategory } from '../../engine/quick'
 import type { PayMethod, Transaction, TxType } from '../../engine/types'
 import { useStore } from '../../state/store'
@@ -28,14 +29,25 @@ export function ExpenseForm({ initial, onSaved, onCancel }: { initial?: Transact
   const [type, setType] = useState<TxType>(initial?.type ?? 'expense')
   const [note, setNote] = useState(initial?.note ?? '')
   const [allocationId, setAllocationId] = useState(initial?.allocationId ?? '')
+  const [allocTouched, setAllocTouched] = useState(!!initial)
   const [submitted, setSubmitted] = useState(false)
 
   const suggestion = useMemo(() => suggestCategory(merchant, categories, data.transactions), [merchant, categories, data.transactions])
   const shownCategory = catTouched ? category : suggestion ?? category
 
+  // set-asides (rent, EMIs, SIPs…) of the cycle this payment falls in
+  const allocs = (data.cycles.find((c) => date >= c.start && date < c.end) ?? cycle)?.allocations ?? []
+  const match = useMemo(
+    () => (type === 'expense' || type === 'refund' ? matchAllocation(merchant, shownCategory, parseAmount(amount) ?? 0, allocs) : null),
+    [type, merchant, shownCategory, amount, allocs],
+  )
+  const linkId = allocTouched ? allocationId : match?.confident ? match.allocation.id : ''
+  // a set-aside payment needs no separate category: it is filed under the set-aside's own name
+  const finalCategory = shownCategory.trim() || allocs.find((a) => a.id === linkId)?.name || ''
+
   const amountErr = validateAmount(amount)
   const dateErr = isValidDate(date) ? null : 'Enter a valid date'
-  const catErr = shownCategory.trim() ? null : 'Pick or type a category'
+  const catErr = finalCategory ? null : 'Pick or type a category'
   const missingHint = quick && parseQuickEntry(quick, today).missing.length ? parseQuickEntry(quick, today).missing : []
 
   const applyQuick = (text: string) => {
@@ -58,8 +70,8 @@ export function ExpenseForm({ initial, onSaved, onCancel }: { initial?: Transact
     setSubmitted(true)
     if (amountErr || dateErr || catErr) return
     onSaved({
-      date, time, amountPaise: parseAmount(amount)!, type, category: shownCategory.trim(), merchant: merchant.trim(), method,
-      card: initial?.card, note: note.trim(), allocationId: allocationId || undefined, plannedId: initial?.plannedId,
+      date, time, amountPaise: parseAmount(amount)!, type, category: finalCategory, merchant: merchant.trim(), method,
+      card: initial?.card, note: note.trim(), allocationId: linkId || undefined, plannedId: initial?.plannedId,
       source: initial?.source ?? (quick ? 'quick' : 'manual'), importHash: initial?.importHash,
     }, !initial)
   }
@@ -101,11 +113,16 @@ export function ExpenseForm({ initial, onSaved, onCancel }: { initial?: Transact
       <Field label="Paid with">
         <Seg label="Payment method" value={method} onChange={setMethod} options={METHODS} />
       </Field>
-      {(type === 'expense' || type === 'refund') && cycle && cycle.allocations.length > 0 && (
-        <Field label="Settles a commitment? (optional)" hint="Choose one for rent, EMI, SIPs… so it isn’t counted again as spending.">
-          <select className="input" value={allocationId} onChange={(e) => setAllocationId(e.target.value)}>
+      {(type === 'expense' || type === 'refund') && allocs.length > 0 && (
+        <Field label="Is this a set-aside payment? (rent, EMI, SIP…)"
+          hint={!allocTouched && match
+            ? match.confident
+              ? `Looks like your ${match.allocation.name} payment, so it is counted against that set-aside and not as spending. Change it here if that's wrong.`
+              : `Is this your ${match.allocation.name} payment? Choose it here if so; otherwise it counts as spending.`
+            : 'Choose one so it is ticked off as paid and not counted again as spending.'}>
+          <select className="input" value={linkId} onChange={(e) => { setAllocationId(e.target.value); setAllocTouched(true) }}>
             <option value="">No – this is regular spending</option>
-            {cycle.allocations.map((a) => <option key={a.id} value={a.id}>{a.name} ({formatMoney(a.amountPaise)} planned)</option>)}
+            {allocs.map((a) => <option key={a.id} value={a.id}>{a.name} ({formatMoney(a.amountPaise)} set aside)</option>)}
           </select>
         </Field>
       )}
