@@ -1,0 +1,77 @@
+# Calculation rules
+
+All logic is in `src/engine/` (pure TypeScript, no UI imports). Screens only read results from
+`computeBudget()`, `closingBalance()`, `dailySeries()`, `spendByCategory()`. Money is **integer paise**; dates are
+local `YYYY-MM-DD` strings (no time-zone arithmetic).
+
+## Cycle
+
+A cycle runs from one salary date to the day before the next (`cycleBounds`). A salary day that does not exist in a
+month (29/30/31) uses that month's last day. A cycle stores its own snapshot of salary, credits, carry-over and
+allocations, so later changes to settings never alter closed cycles. Changing the plan edits only the *current*
+cycle and the template for future ones.
+
+## Money in
+
+```
+available = take-home salary + other credits (cycle field) + one-off "income" transactions + released carry-over
+```
+
+* **Carry-over** from the previous cycle is a *reserve*. Only the amount you release is added to `available`.
+* One-off income (interest, a refund paid into your account, a payout) is a transaction of type *income*.
+
+## Set aside (never spendable)
+
+`fixed` (rent, EMIs, bills), `investment` (SIPs, RD, gold, LIC) and `reserved` (goals, emergency fund) amounts are
+subtracted from `available` first. A payment tagged to one of them (`allocationId`) **settles** it and is *not*
+spending, so nothing is counted twice. If you pay more than planned, only the excess is taken from the spendable budget.
+
+## Spending
+
+```
+spent = Σ expenses − Σ refunds     (transactions with no allocationId; transfers ignored)
+spendable = available − set aside
+remaining = spendable − spent − overrun − planned items not yet paid
+```
+
+| Event | Effect |
+|---|---|
+| Expense | increases `spent` |
+| Refund | decreases `spent` (gives budget back) |
+| Transfer (own accounts, **credit-card bill payment**) | ignored. Count card *purchases* when you make them, not the bill |
+| One-off income | adds to `available` |
+| Savings withdrawal | ordinary carry-over; only counts if you release it |
+| Planned bill / purchase | reserved from the daily limit until marked paid, then becomes a normal expense (no double count) |
+| Deleted / edited transaction | everything is recomputed from the records, so figures always agree |
+
+## Daily limit
+
+```
+daysLeft           = days from today to the next salary date (today included)
+remainingAtDayStart = remaining + today's spending
+today's limit      = max(0, floor(remainingAtDayStart / daysLeft))
+original daily     = floor((spendable − all planned items) / cycle length)
+left today         = today's limit − today's spending
+```
+
+The limit is recomputed from what is *left*, not stored. So underspending raises later days, overspending lowers them,
+and an upcoming planned bill lowers today's limit right away. The UI shows limits rounded **down** to whole rupees.
+The original daily budget, today's limit, spent today and left today are always shown separately.
+
+## Status & warnings
+
+* `on-track`, `watch` (≥ 80% used, or limit under half the original, or pace runs out early), `over` (today over the limit),
+  `exhausted` (remaining ≤ 0), `not-started`, `ended`.
+* A warning appears when no spending has been recorded for 3+ days: the engine does **not** assume records are complete.
+
+## Closing balance (carry-over)
+
+`closing = opening carry + salary + credits + income − max(planned, paid) per allocation − spent`.
+Released carry-over is not subtracted (it was never spent). This is what the next cycle suggests as its opening carry-over.
+
+## Tests
+
+`tests/engine.test.ts` covers paise parsing, Indian grouping, 28/30/31-day and leap-year cycles, salary day 31, the
+worked example (₹35,000 over 30 days), under/overspend redistribution, planned items, refunds, transfers, income,
+allocation settlement and overrun, last-day limit, exhausted/over status, closing balance, categories, duplicates,
+and quick-entry parsing.
