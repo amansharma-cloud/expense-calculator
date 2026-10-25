@@ -1,6 +1,7 @@
+import { CURRENCIES, getCurrency } from '../../engine/currency'
 import { useEffect, useState } from 'react'
 import { cycleLabel } from '../../engine/dates'
-import { formatINR } from '../../engine/money'
+import { formatMoney } from '../../engine/money'
 import type { Plan } from '../../engine/types'
 import { useStore } from '../../state/store'
 import { AllocationEditor, MoneyInput } from '../components/AllocationEditor'
@@ -28,18 +29,23 @@ export function Budget() {
 
       <section className="card stack">
         <h2>Salary</h2>
+        <Field label="Currency" hint="Changing the currency only changes how amounts are written. Existing numbers are not converted.">
+          <select className="input" value={draft.currency ?? 'INR'} onChange={(e) => setDraft({ ...draft, currency: e.target.value })}>
+            {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.name} ({c.symbol.trim()})</option>)}
+          </select>
+        </Field>
         <div className="form-grid two">
-          <Field label="Monthly take-home salary (₹)"><MoneyInput label="Monthly take-home salary" value={draft.takeHomePaise} onChange={(p) => p !== null && setDraft({ ...draft, takeHomePaise: p })} /></Field>
+          <Field label={`Monthly take-home salary (${getCurrency().symbol})`}><MoneyInput label="Monthly take-home salary" value={draft.takeHomePaise} onChange={(p) => p !== null && setDraft({ ...draft, takeHomePaise: p })} /></Field>
           <Field label="Salary credit day" hint="Cycles run from this day to the day before the next one. 31 means “last day” in shorter months.">
             <input className="input num" type="number" min={1} max={31} value={draft.salaryDay} onChange={(e) => setDraft({ ...draft, salaryDay: Number(e.target.value) })} />
           </Field>
         </div>
         {cycle && (
           <div className="form-grid two">
-            <Field label="Other credits this cycle (₹)" hint="Interest, refunds to your account, payouts from others.">
+            <Field label={`Other credits this cycle (${getCurrency().symbol})`} hint="Interest, refunds to your account, payouts from others.">
               <MoneyInput label="Other credits" value={cycle.extraCreditsPaise} onChange={(p) => p !== null && updateCycle({ ...cycle, extraCreditsPaise: p })} />
             </Field>
-            <Field label={`Release from carry-over (₹) – reserve is ${formatINR(cycle.openingCarryPaise)}`} hint="Only this amount is added to your spendable budget. The rest stays untouched.">
+            <Field label={`Release from carry-over (${getCurrency().symbol}) – reserve is ${formatMoney(cycle.openingCarryPaise)}`} hint="Only this amount is added to your spendable budget. The rest stays untouched.">
               <MoneyInput label="Release from carry-over" value={draft.releasedCarryPaise} onChange={(p) => p !== null && setDraft({ ...draft, releasedCarryPaise: p })} />
             </Field>
           </div>
@@ -54,13 +60,13 @@ export function Budget() {
       <section className="card">
         <h2>What this means</h2>
         <table className="explain"><tbody>
-          <tr><td className="sign">+</td><td>Take-home salary &amp; credits</td><td className="num">{formatINR(draft.takeHomePaise + (cycle?.extraCreditsPaise ?? 0))}</td></tr>
-          <tr><td className="sign">+</td><td>Released from carry-over</td><td className="num">{formatINR(Math.min(draft.releasedCarryPaise, cycle?.openingCarryPaise ?? draft.releasedCarryPaise))}</td></tr>
-          <tr><td className="sign">−</td><td>Set aside</td><td className="num">{formatINR(total)}</td></tr>
-          <tr className="eq"><td className="sign">=</td><td>Spendable budget</td><td className="num">{formatINR(spendable)}</td></tr>
+          <tr><td className="sign">+</td><td>Take-home salary &amp; credits</td><td className="num">{formatMoney(draft.takeHomePaise + (cycle?.extraCreditsPaise ?? 0))}</td></tr>
+          <tr><td className="sign">+</td><td>Released from carry-over</td><td className="num">{formatMoney(Math.min(draft.releasedCarryPaise, cycle?.openingCarryPaise ?? draft.releasedCarryPaise))}</td></tr>
+          <tr><td className="sign">−</td><td>Set aside</td><td className="num">{formatMoney(total)}</td></tr>
+          <tr className="eq"><td className="sign">=</td><td>Spendable budget</td><td className="num">{formatMoney(spendable)}</td></tr>
         </tbody></table>
         {spendable <= 0 && <div style={{ marginTop: 10 }}><Alert kind="bad">Set-asides are at least as large as your income. There is nothing left to spend.</Alert></div>}
-        {budget && !dirty && <p className="hint" style={{ marginTop: 8 }}>Today’s limit: {formatINR(budget.todayLimitPaise)} · {budget.daysLeft} days left.</p>}
+        {budget && !dirty && <p className="hint" style={{ marginTop: 8 }}>Today’s limit: {formatMoney(budget.todayLimitPaise)} · {budget.daysLeft} days left.</p>}
       </section>
 
       <section className="card stack">

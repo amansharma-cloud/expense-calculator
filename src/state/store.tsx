@@ -4,6 +4,7 @@ import {
   type ProfileData, type ProfileMeta, type Session, WrongPinError,
 } from '../db/storage'
 import { closingBalance, computeBudget } from '../engine/budget'
+import { setActiveCurrency } from '../engine/currency'
 import { cycleBounds, todayISO } from '../engine/dates'
 import { DEFAULT_CATEGORIES } from '../engine/quick'
 import type { Allocation, BudgetResult, Cycle, Paise, Plan, PlannedItem, Transaction } from '../engine/types'
@@ -107,6 +108,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const closeSession = useCallback(() => {
     openSeq.current++
+    setActiveCurrency(undefined) // back to the default until another profile opens
     session.current?.close()
     session.current = null
     setActive(null)
@@ -318,6 +320,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }
 
   const plan = data.plan ?? defaultPlan()
+  setActiveCurrency(plan.currency) // keeps every screen's number formatting in step with the profile
 
   const cycle = useMemo(
     () => data.cycles.find((c) => today >= c.start && today < c.end) ?? null,

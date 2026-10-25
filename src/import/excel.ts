@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx'
 import { closingBalance } from '../engine/budget'
 import { salaryDateIn } from '../engine/dates'
-import { formatINR, sum } from '../engine/money'
+import { formatMoney, sum } from '../engine/money'
 import type { Allocation, AllocationKind, Cycle, Paise, Transaction } from '../engine/types'
 import type { ProfileData } from '../db/storage'
 
@@ -103,7 +103,7 @@ export function parseWorkbook(buf: ArrayBuffer, salaryDay: number, overrides: Ov
     }
     const terms = parseTerms(ws[`B${totalRow}`]?.f)
     const totalPaise = p(total)
-    if (terms && sum(terms) !== totalPaise) issues.push(`Total Salary formula adds up to ${formatINR(sum(terms), { decimals: true })} but the cell shows ${formatINR(totalPaise, { decimals: true })}.`)
+    if (terms && sum(terms) !== totalPaise) issues.push(`Total Salary formula adds up to ${formatMoney(sum(terms), { decimals: true })} but the cell shows ${formatMoney(totalPaise, { decimals: true })}.`)
 
     const rows: ParsedRow[] = []
     const seen = new Set<string>()
@@ -137,7 +137,7 @@ export function parseWorkbook(buf: ArrayBuffer, salaryDay: number, overrides: Ov
     const bal = cellNum(ws, `C${totalRow}`)
     const sheetBalance = bal === null ? null : p(bal)
     if (sheetBalance !== null && sheetBalance !== computed)
-      issues.push(`The sheet's Balance is ${formatINR(sheetBalance, { decimals: true })} but its rows add up to a balance of ${formatINR(computed, { decimals: true })} (difference ${formatINR(computed - sheetBalance, { decimals: true })}). The app uses the recomputed value.`)
+      issues.push(`The sheet's Balance is ${formatMoney(sheetBalance, { decimals: true })} but its rows add up to a balance of ${formatMoney(computed, { decimals: true })} (difference ${formatMoney(computed - sheetBalance, { decimals: true })}). The app uses the recomputed value.`)
     if (sheetBalance === null) issues.push('No Balance cell found next to Total Salary.')
 
     let opening = 0
@@ -192,7 +192,7 @@ export function parseWorkbook(buf: ArrayBuffer, salaryDay: number, overrides: Ov
     const diff = cur.openingCarryPaise - prevClose
     if (diff !== 0)
       cur.issues.push(
-        `Opens with ${formatINR(cur.openingCarryPaise, { decimals: true })} but ${prev.sheetName} closed at ${formatINR(prevClose, { decimals: true })} (${diff > 0 ? '+' : ''}${formatINR(diff, { decimals: true })} unexplained adjustment). Imported as written.`,
+        `Opens with ${formatMoney(cur.openingCarryPaise, { decimals: true })} but ${prev.sheetName} closed at ${formatMoney(prevClose, { decimals: true })} (${diff > 0 ? '+' : ''}${formatMoney(diff, { decimals: true })} unexplained adjustment). Imported as written.`,
       )
   }
   return { sheets, ignored }

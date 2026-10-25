@@ -1,3 +1,4 @@
+import { getCurrency } from '../../engine/currency'
 import { useEffect, useState } from 'react'
 import { parseAmount } from '../../engine/money'
 import type { Allocation, AllocationKind, Paise } from '../../engine/types'
@@ -42,7 +43,7 @@ export function AllocationEditor({ items, onChange }: { items: Allocation[]; onC
             </select>
           </div>
           <div className="field" style={{ flex: '1 1 120px' }}>
-            <label className="lbl" htmlFor={'a' + a.id}>Per month (₹)</label>
+            <label className="lbl" htmlFor={'a' + a.id}>Per cycle ({getCurrency().symbol})</label>
             <MoneyInput id={'a' + a.id} label={`${a.name} amount`} value={a.amountPaise} onChange={(p) => p !== null && update(a.id, { amountPaise: p })} />
           </div>
           <button type="button" className="btn ghost danger" aria-label={`Remove ${a.name}`} onClick={() => onChange(items.filter((x) => x.id !== a.id))}><Icon name="trash" size={18} /></button>

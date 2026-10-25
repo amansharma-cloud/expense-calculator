@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { exportWorkbook } from '../../db/backup'
 import { closingBalance, cycleTransactions, outflowByCategory, variableNet } from '../../engine/budget'
 import { cycleLabel } from '../../engine/dates'
-import { formatINR } from '../../engine/money'
+import { formatMoney } from '../../engine/money'
 import { sum } from '../../engine/money'
 import { useStore } from '../../state/store'
 import { download, Icon } from '../components/common'
@@ -46,10 +46,10 @@ export function Reports() {
       </div>
 
       <div className="grid stats">
-        <div className="card stat"><div className="label">Money in</div><div className="value num">{formatINR(row.credits)}</div><div className="sub">salary &amp; credits</div></div>
-        <div className="card stat"><div className="label">Set aside</div><div className="value num">{formatINR(row.allocated)}</div><div className="sub">bills, investments, savings</div></div>
-        <div className="card stat"><div className="label">Spent</div><div className="value num">{formatINR(row.spent)}</div><div className="sub">of {formatINR(row.spendable)} spendable</div></div>
-        <div className="card stat"><div className="label">Closing balance</div><div className="value num">{formatINR(row.closing)}</div><div className="sub">opened with {formatINR(c.openingCarryPaise)}</div></div>
+        <div className="card stat"><div className="label">Money in</div><div className="value num">{formatMoney(row.credits)}</div><div className="sub">salary &amp; credits</div></div>
+        <div className="card stat"><div className="label">Set aside</div><div className="value num">{formatMoney(row.allocated)}</div><div className="sub">bills, investments, savings</div></div>
+        <div className="card stat"><div className="label">Spent</div><div className="value num">{formatMoney(row.spent)}</div><div className="sub">of {formatMoney(row.spendable)} spendable</div></div>
+        <div className="card stat"><div className="label">Closing balance</div><div className="value num">{formatMoney(row.closing)}</div><div className="sub">opened with {formatMoney(c.openingCarryPaise)}</div></div>
       </div>
 
       <div className="grid cols-2">
@@ -74,8 +74,8 @@ export function Reports() {
               {[...rows].reverse().map((r) => (
                 <tr key={r.cy.start}>
                   <td>{r.cy.label ?? cycleLabel(r.cy.start, r.cy.end)}</td>
-                  <td className="r num">{formatINR(r.cy.openingCarryPaise)}</td><td className="r num">{formatINR(r.credits)}</td>
-                  <td className="r num">{formatINR(r.allocated)}</td><td className="r num">{formatINR(r.spent)}</td><td className="r num"><b>{formatINR(r.closing)}</b></td>
+                  <td className="r num">{formatMoney(r.cy.openingCarryPaise)}</td><td className="r num">{formatMoney(r.credits)}</td>
+                  <td className="r num">{formatMoney(r.allocated)}</td><td className="r num">{formatMoney(r.spent)}</td><td className="r num"><b>{formatMoney(r.closing)}</b></td>
                 </tr>
               ))}
             </tbody>

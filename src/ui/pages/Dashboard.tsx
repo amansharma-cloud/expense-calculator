@@ -1,11 +1,12 @@
+import { getCurrency } from '../../engine/currency'
 import { useState } from 'react'
 import { cycleTransactions, dailySeries, spendByCategory } from '../../engine/budget'
 import { cycleLabel, isValidDate, shortDate, todayISO } from '../../engine/dates'
-import { formatINR, parseAmount, validateAmount } from '../../engine/money'
+import { formatMoney, parseAmount, validateAmount } from '../../engine/money'
 import { useStore } from '../../state/store'
 
 /** Limits are shown in whole rupees, rounded down, so the app never nudges you to overspend. */
-const rs = (paise: number) => formatINR(Math.floor(paise / 100) * 100)
+const rs = (paise: number) => formatMoney(Math.floor(paise / 100) * 100)
 import { MoneyInput } from '../components/AllocationEditor'
 import { BackupReminder } from '../components/DataHealth'
 import { Alert, Confirm, Field, Icon, Modal, StatusChip, useToast } from '../components/common'
@@ -65,7 +66,7 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
           </div>
         </div>
         <div className="hero-meta">
-          <div><div className="label">Left this cycle</div><div className="v num">{formatINR(b.remainingPaise)}</div></div>
+          <div><div className="label">Left this cycle</div><div className="v num">{formatMoney(b.remainingPaise)}</div></div>
           <div><div className="label">Days to next salary</div><div className="v num">{b.daysLeft}</div></div>
           <div><div className="label">Next salary</div><div className="v num">{shortDate(cycle.end)}</div></div>
         </div>
@@ -76,9 +77,9 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
         <div className="card stat"><div className="label">Today’s recommended</div><div className="value num">{rs(b.todayLimitPaise)}</div><div className="sub">{b.todayLimitPaise >= b.originalDailyPaise ? 'at or above original' : 'below original'}</div></div>
         <div className="card stat"><div className="label">Spent today</div><div className="value num">{rs(Math.max(0, b.todaySpentPaise))}</div><div className="sub">{rs(Math.max(0, b.todayRemainingPaise))} left</div></div>
         <div className="card stat"><div className="label">Daily average</div><div className="value num">{rs(b.dailyAveragePaise)}</div><div className="sub">this cycle</div></div>
-        <div className="card stat"><div className="label">Available this cycle</div><div className="value num">{formatINR(b.poolPaise)}</div><div className="sub">{formatINR(b.protectedPaise)} set aside</div></div>
-        <div className="card stat"><div className="label">Spendable budget</div><div className="value num">{formatINR(b.spendablePaise)}</div><div className="sub">after set-asides</div></div>
-        <div className="card stat"><div className="label">Spent this cycle</div><div className="value num">{formatINR(b.variableSpentPaise)}</div><div className="sub">{b.plannedUnpaidPaise > 0 ? `+ ${formatINR(b.plannedUnpaidPaise)} planned` : 'regular spending'}</div></div>
+        <div className="card stat"><div className="label">Available this cycle</div><div className="value num">{formatMoney(b.poolPaise)}</div><div className="sub">{formatMoney(b.protectedPaise)} set aside</div></div>
+        <div className="card stat"><div className="label">Spendable budget</div><div className="value num">{formatMoney(b.spendablePaise)}</div><div className="sub">after set-asides</div></div>
+        <div className="card stat"><div className="label">Spent this cycle</div><div className="value num">{formatMoney(b.variableSpentPaise)}</div><div className="sub">{b.plannedUnpaidPaise > 0 ? `+ ${formatMoney(b.plannedUnpaidPaise)} planned` : 'regular spending'}</div></div>
         <div className="card stat">
           <div className="label">Budget used</div><div className="value num">{b.utilizationPct}%</div>
           <div className={`bar ${barCls}`} role="progressbar" aria-valuenow={Math.min(100, b.utilizationPct)} aria-valuemin={0} aria-valuemax={100} aria-label="Budget used"><i style={{ width: `${Math.min(100, b.utilizationPct)}%` }} /></div>
@@ -115,7 +116,7 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
             const paid = items.reduce((s, a) => s + Math.min(a.amountPaise, b.allocationPaid[a.id] ?? 0), 0)
             return (
               <div key={k} style={{ margin: '10px 0' }}>
-                <div className="row between"><b>{title}</b><span className="num small">{formatINR(paid)} of {formatINR(planned)}</span></div>
+                <div className="row between"><b>{title}</b><span className="num small">{formatMoney(paid)} of {formatMoney(planned)}</span></div>
                 <div className="bar" role="progressbar" aria-valuenow={Math.round((paid / planned) * 100)} aria-valuemin={0} aria-valuemax={100} aria-label={`${title} paid`}><i style={{ width: `${(paid / planned) * 100}%`, background: 'var(--s3)' }} /></div>
               </div>
             )
@@ -132,7 +133,7 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
               {upcoming.map((p) => (
                 <li key={p.id}>
                   <div className="grow"><div className="title">{p.title}</div><div className="small muted">due {shortDate(p.dueDate)}{p.dueDate < today ? ' · overdue' : ''}</div></div>
-                  <span className="amt num">{formatINR(p.amountPaise)}</span>
+                  <span className="amt num">{formatMoney(p.amountPaise)}</span>
                   <button className="btn sm" onClick={async () => {
                     await payPlanned(p, { date: todayISO(), time: new Date().toTimeString().slice(0, 5), amountPaise: p.amountPaise, type: 'expense', category: p.category || 'Other', merchant: p.title, method: 'upi', note: 'Planned item paid', source: 'manual' })
                     toast('Marked paid and recorded')
@@ -150,7 +151,7 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
               {recent.map((t) => (
                 <li key={t.id}>
                   <div className="grow"><div className="title">{t.merchant || t.category}</div><div className="small muted">{t.category} · {shortDate(t.date)}</div></div>
-                  <span className={`amt num ${t.type === 'refund' || t.type === 'income' ? 'in' : ''}`}>{t.type === 'refund' || t.type === 'income' ? '+' : ''}{formatINR(t.amountPaise)}</span>
+                  <span className={`amt num ${t.type === 'refund' || t.type === 'income' ? 'in' : ''}`}>{t.type === 'refund' || t.type === 'income' ? '+' : ''}{formatMoney(t.amountPaise)}</span>
                 </li>
               ))}
             </ul>
@@ -167,14 +168,14 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
                 <tr key={i} className={l.sign === '=' ? 'eq' : ''}>
                   <td className="sign">{l.sign === '=' ? '=' : l.sign === '-' ? '−' : '+'}</td>
                   <td>{l.label}{l.note && <span className="muted small"> ({l.note})</span>}</td>
-                  <td className="num">{formatINR(l.paise)}</td>
+                  <td className="num">{formatMoney(l.paise)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <p className="hint" style={{ marginTop: 8 }}>
-            Carry-over of {formatINR(cycle.openingCarryPaise)} is kept as a reserve; only the released part is included. Recorded spending is what you entered — if entries are missing, the limit is too generous.
-            At your current pace you would end the cycle with about {formatINR(b.projectedCarryPaise)} to carry over.
+            Carry-over of {formatMoney(cycle.openingCarryPaise)} is kept as a reserve; only the released part is included. Recorded spending is what you entered — if entries are missing, the limit is too generous.
+            At your current pace you would end the cycle with about {formatMoney(b.projectedCarryPaise)} to carry over.
           </p>
         </details>
       </section>
@@ -196,7 +197,7 @@ function PlannedForm({ onClose, onSave, defaultDate }: { onClose: () => void; on
     <Modal title="Planned bill or purchase" onClose={onClose}>
       <form className="stack" noValidate onSubmit={(e) => { e.preventDefault(); setSub(true); if (!title.trim() || err || !isValidDate(due)) return; onSave({ title: title.trim(), amountPaise: parseAmount(text)!, dueDate: due }) }}>
         <Field label="What is it?" error={sub && !title.trim() ? 'Enter a name' : null}><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Insurance premium, new phone…" /></Field>
-        <Field label="Amount (₹)" error={sub ? err : null}><MoneyInput label="Amount" value={amt} onChange={(p) => { setAmt(p ?? 0); setText(p === null ? 'x' : String((p ?? 0) / 100)) }} /></Field>
+        <Field label={`Amount (${getCurrency().symbol})`} error={sub ? err : null}><MoneyInput label="Amount" value={amt} onChange={(p) => { setAmt(p ?? 0); setText(p === null ? 'x' : String((p ?? 0) / 100)) }} /></Field>
         <Field label="Due date" error={sub && !isValidDate(due) ? 'Enter a valid date' : null}><input className="input" type="date" value={due} onChange={(e) => setDue(e.target.value)} /></Field>
         <div className="row" style={{ justifyContent: 'flex-end' }}><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn primary">Reserve it</button></div>
       </form>

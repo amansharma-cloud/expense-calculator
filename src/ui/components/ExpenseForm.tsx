@@ -1,6 +1,7 @@
+import { getCurrency } from '../../engine/currency'
 import { useMemo, useState } from 'react'
 import { nowHM, isValidDate } from '../../engine/dates'
-import { formatINR, parseAmount, validateAmount } from '../../engine/money'
+import { formatMoney, parseAmount, validateAmount } from '../../engine/money'
 import { parseQuickEntry, suggestCategory } from '../../engine/quick'
 import type { PayMethod, Transaction, TxType } from '../../engine/types'
 import { useStore } from '../../state/store'
@@ -67,13 +68,13 @@ export function ExpenseForm({ initial, onSaved, onCancel }: { initial?: Transact
     <form className="stack" onSubmit={submit} noValidate>
       {!initial && (
         <Field label="Quick entry" hint="Type it the way you say it, e.g. “Uber 250 yesterday”. Fields below fill in; check them before saving.">
-          <input className="input" autoFocus value={quick} onChange={(e) => applyQuick(e.target.value)} placeholder="Spent ₹350 on groceries today" autoComplete="off" />
+          <input className="input" autoFocus value={quick} onChange={(e) => applyQuick(e.target.value)} placeholder={`Spent ${getCurrency().symbol}350 on groceries today`} autoComplete="off" />
           {missingHint.length > 0 && <span className="err-text">I still need the {missingHint.join(' and ')}.</span>}
         </Field>
       )}
       <Seg label="Type" value={type} onChange={setType} options={[['expense', 'Expense'], ['refund', 'Refund'], ['income', 'Income'], ['transfer', 'Transfer']]} />
       <div className="form-grid two">
-        <Field label="Amount (₹)" htmlFor="amt" error={submitted ? amountErr : null}>
+        <Field label={`Amount (${getCurrency().symbol})`} htmlFor="amt" error={submitted ? amountErr : null}>
           <input id="amt" className={`input amount-input num ${submitted && amountErr ? 'err' : ''}`} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" autoComplete="off" />
         </Field>
         <Field label={type === 'income' ? 'Source' : 'Description / merchant'} htmlFor="mer">
@@ -104,7 +105,7 @@ export function ExpenseForm({ initial, onSaved, onCancel }: { initial?: Transact
         <Field label="Settles a commitment? (optional)" hint="Choose one for rent, EMI, SIPs… so it isn’t counted again as spending.">
           <select className="input" value={allocationId} onChange={(e) => setAllocationId(e.target.value)}>
             <option value="">No – this is regular spending</option>
-            {cycle.allocations.map((a) => <option key={a.id} value={a.id}>{a.name} ({formatINR(a.amountPaise)} planned)</option>)}
+            {cycle.allocations.map((a) => <option key={a.id} value={a.id}>{a.name} ({formatMoney(a.amountPaise)} planned)</option>)}
           </select>
         </Field>
       )}

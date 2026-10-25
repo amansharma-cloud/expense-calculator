@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { formatINR } from '../../engine/money'
+import { formatMoney } from '../../engine/money'
 import type { Status } from '../../engine/types'
 
 const paths: Record<string, string> = {
@@ -28,7 +28,7 @@ export function Icon({ name, size }: { name: keyof typeof paths | string; size?:
   )
 }
 
-export const Money = ({ paise, decimals }: { paise: number; decimals?: boolean }) => <span className="num">{formatINR(paise, { decimals })}</span>
+export const Money = ({ paise, decimals }: { paise: number; decimals?: boolean }) => <span className="num">{formatMoney(paise, { decimals })}</span>
 
 export function StatusChip({ status }: { status: Status }) {
   const m: Record<Status, [string, string]> = {

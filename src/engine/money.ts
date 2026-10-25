@@ -1,4 +1,8 @@
+import { formatMoney } from './currency'
 import type { Paise } from './types'
+
+/** Currency symbols/words a person might type next to an amount. */
+export const CURRENCY_MARKS = /(?:ca|a|nz|s|us)?\$|[₹€£]|\b(?:rs|inr|rupees?|cad|usd|gbp|eur|aud|nzd|aed|sgd|dollars?|bucks?)\b\.?/gi
 
 /**
  * Parse a user-typed amount ("1,200", "₹350.5", "Rs 90") into integer paise.
@@ -9,7 +13,7 @@ export function parseAmount(input: string | number): Paise | null {
     if (!Number.isFinite(input) || input < 0) return null
     return Math.round(input * 100)
   }
-  const cleaned = input.replace(/₹|rs\.?|inr|rupees?/gi, '').replace(/[,\s]/g, '')
+  const cleaned = input.replace(CURRENCY_MARKS, '').replace(/[,\s]/g, '')
   if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) return null
   const [whole, frac = ''] = cleaned.split('.')
   const paise = Number(whole) * 100 + Number(frac.padEnd(2, '0'))
@@ -26,23 +30,9 @@ export function validateAmount(input: string): string | null {
   return null
 }
 
-function groupIndian(intStr: string): string {
-  if (intStr.length <= 3) return intStr
-  const last3 = intStr.slice(-3)
-  const rest = intStr.slice(0, -3)
-  return rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + last3
-}
-
-/** ₹12,34,567.50 style (Indian digit grouping). Decimals only shown when non-zero unless forced. */
-export function formatINR(paise: Paise, opts: { decimals?: boolean; symbol?: boolean } = {}): string {
-  const neg = paise < 0
-  const abs = Math.abs(Math.round(paise))
-  const whole = Math.floor(abs / 100)
-  const frac = abs % 100
-  const showFrac = opts.decimals ?? frac !== 0
-  const body = groupIndian(String(whole)) + (showFrac ? '.' + String(frac).padStart(2, '0') : '')
-  return (neg ? '-' : '') + (opts.symbol === false ? '' : '₹') + body
-}
+/** Kept for existing callers: formats in the active profile currency (INR by default). */
+export const formatINR = formatMoney
+export { formatMoney }
 
 /** Plain decimal for CSV/XLSX export, e.g. 123456 -> "1234.56". */
 export function toDecimalString(paise: Paise): string {

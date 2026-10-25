@@ -1,8 +1,9 @@
+import { CURRENCIES, getCurrency, setActiveCurrency } from '../../engine/currency'
 import { useRef, useState } from 'react'
 import { parseBackup } from '../../db/backup'
 import { createProfile, openProfile, WrongPinError } from '../../db/storage'
 import { cycleBounds, cycleLabel } from '../../engine/dates'
-import { formatINR } from '../../engine/money'
+import { formatMoney } from '../../engine/money'
 import type { Allocation, Paise } from '../../engine/types'
 import { defaultPlan, useStore } from '../../state/store'
 import { AllocationEditor, MoneyInput } from '../components/AllocationEditor'
@@ -114,6 +115,8 @@ export function Setup() {
   const [items, setItems] = useState<Allocation[]>([])
   const [carry, setCarry] = useState<Paise>(0)
   const [err, setErr] = useState('')
+  const [cur, setCur] = useState<string>(getCurrency().code)
+  setActiveCurrency(cur) // labels on this screen follow the chosen currency
 
   const total = items.reduce((s, a) => s + a.amountPaise, 0)
   const next = () => {
@@ -124,7 +127,7 @@ export function Setup() {
   }
   const finish = async () => {
     const clean = items.filter((a) => a.amountPaise > 0 && a.name.trim())
-    const next = { ...defaultPlan(), ...plan, salaryDay: day, takeHomePaise: salary, allocations: clean }
+    const next = { ...defaultPlan(), ...plan, currency: cur, salaryDay: day, takeHomePaise: salary, allocations: clean }
     await startCycle({ takeHomePaise: salary, extraCreditsPaise: 0, openingCarryPaise: carry, releasedCarryPaise: 0 }, next)
   }
   const bounds = cycleBounds(today, day)
@@ -145,11 +148,16 @@ export function Setup() {
       {step === 0 && (
         <>
           <p className="ink2">Two numbers get you started.</p>
-          <Field label="Monthly take-home salary (₹)"><MoneyInput label="Monthly take-home salary" value={salary} onChange={(p) => setSalary(p ?? 0)} /></Field>
+          <Field label="Currency" hint="Used for every amount in this profile. You can change it later (it relabels amounts; it does not convert them).">
+            <select className="input" value={cur} onChange={(e) => setCur(e.target.value)}>
+              {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.name} ({c.symbol.trim()})</option>)}
+            </select>
+          </Field>
+          <Field label={`Monthly take-home salary (${getCurrency().symbol})`}><MoneyInput label="Monthly take-home salary" value={salary} onChange={(p) => setSalary(p ?? 0)} /></Field>
           <Field label="Salary credit day of the month" hint="Your cycle runs from one salary day to the day before the next. Days like 31 use the last day of shorter months.">
             <input className="input num" type="number" min={1} max={31} value={day} onChange={(e) => setDay(Number(e.target.value))} />
           </Field>
-          <Field label="Money already in your account / carry-over (₹, optional)" hint="Stays as a reserve. It is not added to your daily limit unless you release part of it later.">
+          <Field label={`Money already in your account / carry-over (${getCurrency().symbol}, optional)`} hint="Stays as a reserve. It is not added to your daily limit unless you release part of it later.">
             <MoneyInput label="Carry-over" value={carry} onChange={(p) => setCarry(p ?? 0)} />
           </Field>
           <button className="btn" onClick={() => setMode('excel')}><Icon name="upload" size={18} /> I have an Excel tracker – import it instead</button>
@@ -165,9 +173,9 @@ export function Setup() {
         <>
           <p className="ink2">Here is your first cycle: <b>{cycleLabel(bounds.start, bounds.end)}</b>.</p>
           <div className="card" style={{ background: 'var(--surface-2)' }}>
-            <div className="row between"><span>Take-home salary</span><b className="num">{formatINR(salary)}</b></div>
-            <div className="row between"><span>Set aside (bills, investments, savings)</span><b className="num">−{formatINR(total)}</b></div>
-            <div className="row between"><span>Spendable</span><b className="num">{formatINR(salary - total)}</b></div>
+            <div className="row between"><span>Take-home salary</span><b className="num">{formatMoney(salary)}</b></div>
+            <div className="row between"><span>Set aside (bills, investments, savings)</span><b className="num">−{formatMoney(total)}</b></div>
+            <div className="row between"><span>Spendable</span><b className="num">{formatMoney(salary - total)}</b></div>
           </div>
           {salary - total <= 0 && <Alert kind="bad">Your commitments are at least as large as your salary, so there is nothing left to spend. Go back and check the amounts.</Alert>}
         </>
@@ -196,16 +204,16 @@ export function NewCycle() {
     <div className="gate"><div className="card stack" style={{ maxWidth: 640 }}>
       <h1>Start your new salary cycle</h1>
       <p className="ink2"><b>{cycleLabel(start, end)}</b></p>
-      {prev && <Alert kind="info">Last cycle ({prev.label ?? cycleLabel(prev.start, prev.end)}) closed with <b className="num">{formatINR(suggestedOpeningCarry, { decimals: true })}</b>. It is filled in as the carry-over; change it if your bank balance differs.</Alert>}
+      {prev && <Alert kind="info">Last cycle ({prev.label ?? cycleLabel(prev.start, prev.end)}) closed with <b className="num">{formatMoney(suggestedOpeningCarry, { decimals: true })}</b>. It is filled in as the carry-over; change it if your bank balance differs.</Alert>}
       <div className="form-grid two">
-        <Field label="Salary credited (₹)"><MoneyInput label="Salary credited" value={salary} onChange={(p) => setSalary(p ?? 0)} /></Field>
-        <Field label="Other credits (₹)" hint="Interest, refunds, payouts…"><MoneyInput label="Other credits" value={extra} onChange={(p) => setExtra(p ?? 0)} /></Field>
-        <Field label="Carry-over from last cycle (₹)"><MoneyInput label="Carry-over" value={carry} onChange={(p) => setCarry(p ?? 0)} /></Field>
-        <Field label="Release from carry-over for spending (₹)" hint="Only this amount is added to your daily limit. The rest stays a reserve."><MoneyInput label="Release from carry-over" value={release} onChange={(p) => setRelease(p ?? 0)} /></Field>
+        <Field label={`Salary credited (${getCurrency().symbol})`}><MoneyInput label="Salary credited" value={salary} onChange={(p) => setSalary(p ?? 0)} /></Field>
+        <Field label={`Other credits (${getCurrency().symbol})`} hint="Interest, refunds, payouts…"><MoneyInput label="Other credits" value={extra} onChange={(p) => setExtra(p ?? 0)} /></Field>
+        <Field label={`Carry-over from last cycle (${getCurrency().symbol})`}><MoneyInput label="Carry-over" value={carry} onChange={(p) => setCarry(p ?? 0)} /></Field>
+        <Field label={`Release from carry-over for spending (${getCurrency().symbol})`} hint="Only this amount is added to your daily limit. The rest stays a reserve."><MoneyInput label="Release from carry-over" value={release} onChange={(p) => setRelease(p ?? 0)} /></Field>
       </div>
       <div className="card" style={{ background: 'var(--surface-2)' }}>
-        <div className="row between"><span>Spendable this cycle</span><b className="num">{formatINR(spendable)}</b></div>
-        <div className="row between"><span>Roughly per day</span><b className="num">{formatINR(Math.max(0, Math.floor(spendable / Math.max(1, Math.round((Date.parse(end) - Date.parse(start)) / 86400000)))))}</b></div>
+        <div className="row between"><span>Spendable this cycle</span><b className="num">{formatMoney(spendable)}</b></div>
+        <div className="row between"><span>Roughly per day</span><b className="num">{formatMoney(Math.max(0, Math.floor(spendable / Math.max(1, Math.round((Date.parse(end) - Date.parse(start)) / 86400000)))))}</b></div>
       </div>
       <button className="btn primary" onClick={() => startCycle({ takeHomePaise: salary, extraCreditsPaise: extra, openingCarryPaise: carry, releasedCarryPaise: release })}>Start cycle</button>
     </div></div>

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { formatINR } from '../../engine/money'
+import { formatMoney } from '../../engine/money'
 import { buildImport, parseWorkbook, type Overrides, type ParseResult, type RowGroup } from '../../import/excel'
 import { useStore } from '../../state/store'
 import { Alert, Confirm, useToast } from './common'
@@ -96,8 +96,8 @@ export function ImportWizard({ onDone }: { onDone?: () => void }) {
                               onChange={(e) => { const next = new Set(picked ?? parsed!.sheets.map((x) => x.sheetName)); e.target.checked ? next.add(s.sheetName) : next.delete(s.sheetName); setPicked(next) }} /></td>
                             <td>{s.sheetName}{skip && <div className="hint">{skip.reason} Skipped.</div>}</td>
                             <td className="num">{s.cycleStart} → {s.cycleEnd}</td>
-                            <td className="r num">{s.sheetBalancePaise !== null ? formatINR(s.sheetBalancePaise, { decimals: true }) : '–'}</td>
-                            <td className="r num" style={diff ? { color: 'var(--bad)', fontWeight: 700 } : undefined}>{rec ? formatINR(rec.appBalancePaise, { decimals: true }) : '–'}</td>
+                            <td className="r num">{s.sheetBalancePaise !== null ? formatMoney(s.sheetBalancePaise, { decimals: true }) : '–'}</td>
+                            <td className="r num" style={diff ? { color: 'var(--bad)', fontWeight: 700 } : undefined}>{rec ? formatMoney(rec.appBalancePaise, { decimals: true }) : '–'}</td>
                           </tr>
                         )
                       })}

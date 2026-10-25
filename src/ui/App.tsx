@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { formatINR } from '../engine/money'
+import { formatMoney } from '../engine/money'
 import { useStore } from '../state/store'
 import { Icon, Modal, useToast } from './components/common'
 import { AutoBackupRunner } from './components/DataHealth'
@@ -53,7 +53,7 @@ export function App() {
     await addTx(d)
     setAdding(false)
     if (route === 'add') window.location.hash = '#/dashboard'
-    toast(`Saved ${formatINR(d.amountPaise)} · ${d.category}`)
+    toast(`Saved ${formatMoney(d.amountPaise)} · ${d.category}`)
   }
 
   const page = () => {
@@ -98,7 +98,7 @@ export function App() {
         </Modal>
       )}
       <AutoBackupRunner />
-      <span className="sr" aria-live="polite">{budget ? `Today's limit ${formatINR(budget.todayLimitPaise)}` : ''}</span>
+      <span className="sr" aria-live="polite">{budget ? `Today's limit ${formatMoney(budget.todayLimitPaise)}` : ''}</span>
     </div>
   )
 }

@@ -1,14 +1,17 @@
 import { Bar, BarChart, CartesianGrid, ComposedChart, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { DayPoint } from '../../engine/budget'
 import { shortDate } from '../../engine/dates'
-import { formatINR } from '../../engine/money'
+import { getCurrency } from '../../engine/currency'
+import { formatMoney } from '../../engine/money'
 import type { Paise } from '../../engine/types'
 
 const axis = { fontSize: 11, fill: 'var(--muted)' }
 const compact = (paise: number) => {
   const r = paise / 100
   const a = Math.abs(r)
-  return a >= 100000 ? `${+(r / 100000).toFixed(1)}L` : a >= 1000 ? `${+(r / 1000).toFixed(1)}k` : String(Math.round(r))
+  if (getCurrency().group === 'indian' && a >= 100000) return `${+(r / 100000).toFixed(1)}L`
+  if (a >= 1_000_000) return `${+(r / 1_000_000).toFixed(1)}M`
+  return a >= 1000 ? `${+(r / 1000).toFixed(1)}k` : String(Math.round(r))
 }
 
 function Tip({ active, payload, label, rows }: { active?: boolean; payload?: { payload: Record<string, number | string> }[]; label?: string; rows: [string, string][] }) {
@@ -17,7 +20,7 @@ function Tip({ active, payload, label, rows }: { active?: boolean; payload?: { p
   return (
     <div className="tip">
       <b>{shortDate(String(label ?? p.date))}</b>
-      {rows.map(([name, key]) => <div key={key} className="num">{name}: {formatINR(Number(p[key]), { decimals: false })}</div>)}
+      {rows.map(([name, key]) => <div key={key} className="num">{name}: {formatMoney(Number(p[key]), { decimals: false })}</div>)}
     </div>
   )
 }
@@ -74,10 +77,10 @@ export function CategoryBars({ rows, max = 8 }: { rows: { category: string; pais
   return (
     <div role="list" aria-label="Spending by category">
       {list.map((r) => (
-        <div className="hbar" role="listitem" key={r.category} title={`${r.category}: ${formatINR(r.paise)}`}>
+        <div className="hbar" role="listitem" key={r.category} title={`${r.category}: ${formatMoney(r.paise)}`}>
           <span className="name">{r.category}</span>
           <span className="track"><i style={{ width: `${Math.max(2, (r.paise / top) * 100)}%` }} /></span>
-          <span className="num"><b>{formatINR(r.paise)}</b> <span className="muted small">{Math.round((r.paise / total) * 100)}%</span></span>
+          <span className="num"><b>{formatMoney(r.paise)}</b> <span className="muted small">{Math.round((r.paise / total) * 100)}%</span></span>
         </div>
       ))}
     </div>
@@ -93,7 +96,7 @@ export function MonthlyChart({ rows }: { rows: { label: string; spendable: numbe
           <CartesianGrid stroke="var(--line)" vertical={false} />
           <XAxis dataKey="label" tick={axis} tickLine={false} axisLine={false} interval="preserveStartEnd" />
           <YAxis tick={axis} tickFormatter={(v) => compact(Number(v))} tickLine={false} axisLine={false} width={48} />
-          <Tooltip cursor={{ fill: 'var(--surface-2)' }} formatter={(v) => formatINR(Number(v))} contentStyle={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10 }} />
+          <Tooltip cursor={{ fill: 'var(--surface-2)' }} formatter={(v) => formatMoney(Number(v))} contentStyle={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10 }} />
           <Bar dataKey="spendable" name="Budget" fill="var(--s3)" radius={[4, 4, 0, 0]} maxBarSize={26} />
           <Bar dataKey="spent" name="Spent" fill="var(--s1)" radius={[4, 4, 0, 0]} maxBarSize={26} />
         </ComposedChart>

@@ -1,5 +1,5 @@
 import { addDays, diffDays } from './dates'
-import { floorDiv, formatINR, sum } from './money'
+import { floorDiv, formatMoney, sum } from './money'
 import type { BudgetResult, Cycle, ExplainLine, ISODate, Paise, PlannedItem, Status, Transaction } from './types'
 
 /**
@@ -109,20 +109,20 @@ export function computeBudget(
     warnings.push('This salary cycle has ended. Start the next cycle to get a new daily limit.')
   } else if (remaining <= 0) {
     status = 'exhausted'
-    warnings.push(`The spendable budget for this cycle is used up (${formatINR(-remaining)} over). Avoid non-essential spending until the next salary.`)
+    warnings.push(`The spendable budget for this cycle is used up (${formatMoney(-remaining)} over). Avoid non-essential spending until the next salary.`)
   } else if (todayRemaining < 0) {
     status = 'over'
-    warnings.push(`Today's spending is ${formatINR(-todayRemaining)} over the limit. Tomorrow's limit will be lower.`)
+    warnings.push(`Today's spending is ${formatMoney(-todayRemaining)} over the limit. Tomorrow's limit will be lower.`)
   } else if (utilizationPct >= 80 || (originalDaily > 0 && todayLimit < originalDaily / 2) || projectedLastDay) {
     status = 'watch'
     if (utilizationPct >= 80) warnings.push(`${utilizationPct}% of the spendable budget is used.`)
     if (originalDaily > 0 && todayLimit < originalDaily / 2)
-      warnings.push(`Today's limit (${formatINR(todayLimit)}) is below half of the original daily budget.`)
+      warnings.push(`Today's limit (${formatMoney(todayLimit)}) is below half of the original daily budget.`)
     if (projectedLastDay)
       warnings.push(`At your current pace the money runs out around ${projectedLastDay}, before the next salary.`)
   }
   if (!notStarted && !ended && overrun > 0)
-    warnings.push(`Commitments cost ${formatINR(overrun)} more than planned; this was taken from the spendable budget.`)
+    warnings.push(`Commitments cost ${formatMoney(overrun)} more than planned; this was taken from the spendable budget.`)
 
   const lastEntry = txs.filter(isVariable).map((x) => x.date).sort().pop()
   if (!notStarted && !ended && dayNumber > 3) {
@@ -139,7 +139,7 @@ export function computeBudget(
   const explain: ExplainLine[] = [
     L('Take-home salary', cycle.takeHomePaise, '+'),
     L('Other credits this cycle', cycle.extraCreditsPaise + income, '+', 'interest, refunds-to-account, payouts'),
-    L('Carry-over released into this cycle', cycle.releasedCarryPaise, '+', `of ${formatINR(cycle.openingCarryPaise)} carry-over`),
+    L('Carry-over released into this cycle', cycle.releasedCarryPaise, '+', `of ${formatMoney(cycle.openingCarryPaise)} carry-over`),
     L('Money available this cycle', pool, '='),
     L('Fixed commitments', byKind('fixed'), '-'),
     L('Investments', byKind('investment'), '-'),

@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx'
 import { cycleLabel, isValidDate } from '../engine/dates'
 import { closingBalance } from '../engine/budget'
+import { getCurrency, isCurrencyCode } from '../engine/currency'
 import { toDecimalString } from '../engine/money'
 import type { Cycle, Plan, Transaction } from '../engine/types'
 import { emptyData, type ProfileData } from './storage'
@@ -53,6 +54,7 @@ export function parseBackup(text: string): { profileName: string; data: ProfileD
     const p = d.plan as Plan
     if (!isInt(p.salaryDay) || p.salaryDay < 1 || p.salaryDay > 31 || !isInt(p.takeHomePaise) || !isInt(p.releasedCarryPaise) || !Array.isArray(p.categories))
       throw new Error('Backup plan is invalid.')
+    if (p.currency !== undefined && !isCurrencyCode(p.currency)) throw new Error(`Backup uses an unsupported currency (${String(p.currency)}).`)
     checkAllocations(p.allocations, 'plan')
     data.plan = p
   }
@@ -113,20 +115,20 @@ function csvCell(v: string): string {
   return /[",\n\r]/.test(safe) ? '"' + safe.replace(/"/g, '""') + '"' : safe
 }
 
-const TX_HEADERS = ['Date', 'Time', 'Type', 'Amount (INR)', 'Category', 'Merchant / Description', 'Payment method', 'Card', 'Note', 'Source']
+const txHeaders = () => ['Date', 'Time', 'Type', `Amount (${getCurrency().code})`, 'Category', 'Merchant / Description', 'Payment method', 'Card', 'Note', 'Source']
 
 const txRow = (t: Transaction) => [t.date, t.time, t.type, toDecimalString(t.amountPaise), t.category, t.merchant, t.method, t.card ?? '', t.note, t.source]
 
 export function transactionsToCSV(txs: Transaction[]): string {
   const rows = [...txs].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)).map(txRow)
-  return [TX_HEADERS, ...rows].map((r) => r.map((c) => csvCell(String(c))).join(',')).join('\r\n') + '\r\n'
+  return [txHeaders(), ...rows].map((r) => r.map((c) => csvCell(String(c))).join(',')).join('\r\n') + '\r\n'
 }
 
 export function exportWorkbook(data: ProfileData): Uint8Array<ArrayBuffer> {
   const wb = XLSX.utils.book_new()
   const txs = [...data.transactions].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
   const txSheet = XLSX.utils.aoa_to_sheet([
-    TX_HEADERS,
+    txHeaders(),
     ...txs.map((t) => {
       const r = txRow(t)
       r[3] = t.amountPaise / 100 as unknown as string
@@ -136,7 +138,7 @@ export function exportWorkbook(data: ProfileData): Uint8Array<ArrayBuffer> {
   XLSX.utils.book_append_sheet(wb, txSheet, 'Transactions')
   const cycles = [...data.cycles].sort((a, b) => a.start.localeCompare(b.start))
   const sum = XLSX.utils.aoa_to_sheet([
-    ['Cycle', 'Opening carry-over', 'Salary', 'Other credits', 'Allocations', 'Spent (variable)', 'Closing balance'],
+    ['Cycle', `Opening carry-over (${getCurrency().code})`, 'Salary', 'Other credits', 'Allocations', 'Spent (variable)', 'Closing balance'],
     ...cycles.map((c) => {
       const inC = data.transactions.filter((t) => t.date >= c.start && t.date < c.end)
       const alloc = c.allocations.reduce((s, a) => s + a.amountPaise, 0)

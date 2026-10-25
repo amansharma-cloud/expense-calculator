@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { exportWorkbook, transactionsToCSV } from '../../db/backup'
 import { findDuplicates, outflowByCategory } from '../../engine/budget'
 import { addDays, cycleLabel, shortDate } from '../../engine/dates'
-import { formatINR } from '../../engine/money'
+import { formatMoney } from '../../engine/money'
 import type { Transaction } from '../../engine/types'
 import { useStore } from '../../state/store'
 import { Confirm, download, Icon, Modal, useToast } from '../components/common'
@@ -47,7 +47,7 @@ export function Transactions() {
       .filter((t) => t.date >= range[0] && t.date <= range[1])
       .filter((t) => !cat || t.category === cat)
       .filter((t) => !type || t.type === type)
-      .filter((t) => !needle || `${t.merchant} ${t.category} ${t.note}`.toLowerCase().includes(needle) || formatINR(t.amountPaise).includes(needle))
+      .filter((t) => !needle || `${t.merchant} ${t.category} ${t.note}`.toLowerCase().includes(needle) || formatMoney(t.amountPaise).includes(needle))
       .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))
   }, [data.transactions, range, cat, type, q])
 
@@ -102,11 +102,11 @@ export function Transactions() {
 
       <div className="grid stats">
         <div className="card stat"><div className="label">Entries</div><div className="value num">{filtered.length}</div></div>
-        <div className="card stat"><div className="label">Expenses</div><div className="value num">{formatINR(spent)}</div></div>
-        <div className="card stat"><div className="label">Refunds</div><div className="value num">{formatINR(back)}</div></div>
-        <div className="card stat"><div className="label">Net</div><div className="value num">{formatINR(spent - back)}</div></div>
+        <div className="card stat"><div className="label">Expenses</div><div className="value num">{formatMoney(spent)}</div></div>
+        <div className="card stat"><div className="label">Refunds</div><div className="value num">{formatMoney(back)}</div></div>
+        <div className="card stat"><div className="label">Net</div><div className="value num">{formatMoney(spent - back)}</div></div>
       </div>
-      {catSummary.length > 0 && <div className="chips" aria-label="Top categories in this view">{catSummary.map((c) => <span className="chip" key={c.category}>{c.category} · {formatINR(c.paise)}</span>)}</div>}
+      {catSummary.length > 0 && <div className="chips" aria-label="Top categories in this view">{catSummary.map((c) => <span className="chip" key={c.category}>{c.category} · {formatMoney(c.paise)}</span>)}</div>}
 
       {filtered.length === 0 ? (
         <div className="card"><p className="muted">No transactions match. {data.transactions.length === 0 ? 'Add your first expense with the + button.' : 'Try a different period or clear the search.'}</p></div>
@@ -114,7 +114,7 @@ export function Transactions() {
         <div className="stack">
           {[...groups.entries()].map(([date, list]) => (
             <section className="card" key={date} aria-label={shortDate(date)}>
-              <div className="row between"><b>{shortDate(date)}{date === today ? ' · Today' : ''}</b><span className="muted small num">{formatINR(list.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amountPaise, 0))}</span></div>
+              <div className="row between"><b>{shortDate(date)}{date === today ? ' · Today' : ''}</b><span className="muted small num">{formatMoney(list.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amountPaise, 0))}</span></div>
               <ul className="list">
                 {list.map((t) => (
                   <li key={t.id}>
@@ -125,7 +125,7 @@ export function Transactions() {
                         {dupIds.has(t.id) && <span className="chip warn" style={{ marginLeft: 6 }}>possible duplicate</span>}
                       </div>
                     </div>
-                    <span className={`amt num ${t.type === 'refund' || t.type === 'income' ? 'in' : ''}`}>{t.type === 'refund' || t.type === 'income' ? '+' : ''}{formatINR(t.amountPaise)}</span>
+                    <span className={`amt num ${t.type === 'refund' || t.type === 'income' ? 'in' : ''}`}>{t.type === 'refund' || t.type === 'income' ? '+' : ''}{formatMoney(t.amountPaise)}</span>
                     <button className="btn ghost sm" aria-label={`Edit ${t.merchant || t.category}`} onClick={() => setEditing(t)}><Icon name="edit" size={16} /></button>
                     <button className="btn ghost sm" aria-label={`Delete ${t.merchant || t.category}`} onClick={() => setDeleting(t)}><Icon name="trash" size={16} /></button>
                   </li>
@@ -143,7 +143,7 @@ export function Transactions() {
         </Modal>
       )}
       {deleting && (
-        <Confirm title="Delete this transaction?" body={<>{deleting.merchant || deleting.category} · {formatINR(deleting.amountPaise)} on {shortDate(deleting.date)}. Your budget will be recalculated. This can’t be undone.</>}
+        <Confirm title="Delete this transaction?" body={<>{deleting.merchant || deleting.category} · {formatMoney(deleting.amountPaise)} on {shortDate(deleting.date)}. Your budget will be recalculated. This can’t be undone.</>}
           onCancel={() => setDeleting(null)} onConfirm={async () => { await deleteTx(deleting.id); setDeleting(null); toast('Deleted') }} />
       )}
     </div>

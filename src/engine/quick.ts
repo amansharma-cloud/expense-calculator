@@ -9,15 +9,15 @@ import type { ISODate, Paise, Transaction } from './types'
 
 /** concept -> keywords found in a description. */
 const CONCEPTS: Record<string, string[]> = {
-  food: ['grocery', 'groceries', 'vegetable', 'veggies', 'fruit', 'milk', 'bigbasket', 'blinkit', 'zepto', 'instamart', 'dmart', 'kirana', 'supermarket'],
-  eating: ['lunch', 'dinner', 'breakfast', 'zomato', 'swiggy', 'restaurant', 'cafe', 'coffee', 'pizza', 'burger', 'dominos', 'mcdonald', 'starbucks', 'chai', 'snack', 'biryani'],
-  cab: ['uber', 'ola', 'rapido', 'cab', 'auto', 'metro', 'bus', 'train', 'flight'],
-  fuel: ['petrol', 'diesel', 'fuel', 'toll', 'fastag', 'parking', 'car service', 'bike service'],
-  utilities: ['electricity', 'ebill', 'e bill', 'water bill', 'gas', 'cylinder', 'lpg', 'maintenance'],
+  food: ['grocery', 'groceries', 'vegetable', 'veggies', 'fruit', 'milk', 'bigbasket', 'blinkit', 'zepto', 'instamart', 'dmart', 'kirana', 'supermarket', 'costco', 'loblaws', 'no frills', 'freshco', 'sobeys', 'metro', 't&t', 'walmart'],
+  eating: ['lunch', 'dinner', 'breakfast', 'zomato', 'swiggy', 'restaurant', 'cafe', 'coffee', 'pizza', 'burger', 'dominos', 'mcdonald', 'starbucks', 'chai', 'snack', 'biryani', 'tim hortons', 'timmies', 'doordash', 'uber eats', 'ubereats', 'skip the dishes', 'subway', 'a&w'],
+  cab: ['uber', 'ola', 'rapido', 'lyft', 'cab', 'auto', 'ttc', 'presto', 'go transit', 'bus', 'train', 'flight'],
+  fuel: ['petrol', 'diesel', 'fuel', 'gas station', 'esso', 'petro canada', 'petro-canada', 'toll', 'fastag', 'parking', 'car service', 'bike service'],
+  utilities: ['electricity', 'ebill', 'e bill', 'hydro', 'enbridge', 'water bill', 'gas bill', 'cylinder', 'lpg', 'maintenance'],
   subscription: ['netflix', 'prime', 'hotstar', 'spotify', 'youtube', 'subscription', 'icloud', 'google one'],
-  recharge: ['recharge', 'airtel', 'jio', 'vi ', 'wifi', 'broadband', 'internet', 'dth'],
-  health: ['medicine', 'pharmacy', 'doctor', 'hospital', 'clinic', 'apollo', 'medplus', 'lab', 'dental'],
-  shopping: ['amazon', 'flipkart', 'myntra', 'shopping', 'clothes', 'shoes', 'mall', 'ajio', 'meesho'],
+  recharge: ['recharge', 'airtel', 'jio', 'vi ', 'rogers', 'bell', 'telus', 'fido', 'koodo', 'wifi', 'broadband', 'internet', 'dth'],
+  health: ['medicine', 'pharmacy', 'doctor', 'hospital', 'clinic', 'apollo', 'medplus', 'shoppers drug mart', 'lab', 'dental'],
+  shopping: ['amazon', 'canadian tire', 'ikea', 'flipkart', 'myntra', 'shopping', 'clothes', 'shoes', 'mall', 'ajio', 'meesho'],
   personal: ['haircut', 'salon', 'spa', 'gym', 'barber'],
   gift: ['gift', 'prasad', 'sweets', 'flowers', 'temple', 'donation'],
 }
@@ -94,7 +94,12 @@ export interface QuickParse {
   missing: ('amount' | 'description')[]
 }
 
-const FILLER = /\b(spent|paid|pay|payment|bought|buy|purchase[d]?|for|on|at|to|of|rs|inr|rupees?)\b/gi
+const CODES = 'rs|inr|cad|usd|gbp|eur|aud|nzd|aed|sgd'
+const NUM = '([\\d,]+(?:\\.\\d{1,2})?)'
+/** "$4.50", "₹350", "CA$12", "Rs 90", "12 dollars", "45 cad" … */
+const MARKED = new RegExp(`(?:(?:ca|a|nz|s|us)?\\$|[₹€£]|\\b(?:${CODES})\\b\\.?)\\s*${NUM}|${NUM}\\s*(?:[₹€£]|\\b(?:${CODES}|rupees?|dollars?|bucks?)\\b)`, 'i')
+
+const FILLER = /\b(spent|paid|pay|payment|bought|buy|purchase[d]?|for|on|at|to|of|rs|inr|rupees?|dollars?|bucks?|cad|usd)\b/gi
 
 /** "Spent ₹350 on groceries today" -> {amount: 35000, date: today, description: 'groceries'} */
 export function parseQuickEntry(text: string, today: ISODate): QuickParse {
@@ -115,7 +120,7 @@ export function parseQuickEntry(text: string, today: ISODate): QuickParse {
 
   // Prefer a number with a currency marker; otherwise the last standalone number.
   let amountPaise: Paise | null = null
-  const marked = rest.match(/(?:₹|\brs\.?|\binr)\s*([\d,]+(?:\.\d{1,2})?)|([\d,]+(?:\.\d{1,2})?)\s*(?:₹|\brs\b|\binr\b|\brupees?\b)/i)
+  const marked = rest.match(MARKED)
   if (marked) {
     amountPaise = parseAmount(marked[1] ?? marked[2])
     rest = rest.replace(marked[0], ' ')

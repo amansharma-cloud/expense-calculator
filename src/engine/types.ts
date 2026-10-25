@@ -1,4 +1,4 @@
-/** All money is integer paise (₹1 = 100 paise). All dates are local 'YYYY-MM-DD' strings. */
+/** All money is an integer in minor units (paise, cents…; 100 per unit). The type is still called Paise. All dates are local 'YYYY-MM-DD' strings. */
 export type Paise = number
 export type ISODate = string
 
@@ -73,6 +73,8 @@ export interface Cycle {
 }
 
 export interface Plan {
+  /** ISO 4217 code of a supported currency (see currency.ts). Missing = INR. */
+  currency?: string
   salaryDay: number
   takeHomePaise: Paise
   releasedCarryPaise: Paise
