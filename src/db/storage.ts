@@ -31,15 +31,26 @@ export interface ProfileMeta {
   locked: boolean
   salt?: string
   check?: Sealed
+  /** ISO time of the last backup (download, share or auto-backup folder). Not sensitive, so kept unencrypted. */
+  lastBackupAt?: string
 }
 
-interface RecordRow {
+/**
+ * `u` = last-change time (ms). `x` = 1 marks a deleted record (a tombstone is kept instead of
+ * erasing the row, so a future sync can tell "deleted" from "never existed").
+ */
+export interface RecordRow {
   k: string
   t: string
+  u: number
+  x?: 1
   d?: unknown
   iv?: string
   ct?: string
 }
+
+/** Bump when the stored layout changes. Migrations must be additive and never discard data. */
+export const DB_SCHEMA_VERSION = 2
 
 class RegistryDB extends Dexie {
   profiles!: Table<ProfileMeta, string>
@@ -53,6 +64,12 @@ class ProfileDB extends Dexie {
   constructor(id: string) {
     super('ds-profile-' + id)
     this.version(1).stores({ records: 'k,t' })
+    // v2: every row carries an update time `u` (needed for sync/merge). Existing rows are stamped, nothing is removed.
+    this.version(DB_SCHEMA_VERSION).stores({ records: 'k,t,u' }).upgrade((tx) =>
+      tx.table('records').toCollection().modify((r: Partial<RecordRow>) => {
+        if (typeof r.u !== 'number') r.u = Date.now()
+      }),
+    )
   }
 }
 
@@ -91,6 +108,15 @@ export async function createProfile(name: string, pin?: string): Promise<Profile
   return meta
 }
 
+export async function setLastBackup(id: string, iso: string): Promise<void> {
+  const r = registry()
+  try {
+    await r.profiles.update(id, { lastBackupAt: iso })
+  } finally {
+    r.close()
+  }
+}
+
 export async function renameProfile(id: string, name: string): Promise<void> {
   const r = registry()
   try {
@@ -123,13 +149,20 @@ export class Session {
 
   private async pack(table: string, id: string, value: unknown): Promise<RecordRow> {
     const k = `${table}:${id}`
-    return this.key ? { k, t: table, ...(await seal(this.key, value)) } : { k, t: table, d: value }
+    const u = Date.now()
+    return this.key ? { k, t: table, u, ...(await seal(this.key, value)) } : { k, t: table, u, d: value }
+  }
+
+  /** Raw rows including tombstones, exactly as stored (ciphertext stays ciphertext). Used by backup/sync. */
+  async rawRows(): Promise<RecordRow[]> {
+    return this.db.records.toArray()
   }
 
   async load(): Promise<ProfileData> {
     const rows = await this.db.records.toArray()
     const data = emptyData()
     for (const row of rows) {
+      if (row.x) continue
       const value = row.ct && row.iv ? await open(this.key!, { iv: row.iv, ct: row.ct }) : row.d
       switch (row.t as TableName) {
         case 'plan': data.plan = value as Plan; break
@@ -151,7 +184,7 @@ export class Session {
   }
 
   async remove(table: TableName, id: string): Promise<void> {
-    await this.db.records.delete(`${table}:${id}`)
+    await this.db.records.put({ k: `${table}:${id}`, t: table, u: Date.now(), x: 1 })
   }
 
   /** Delete every record (keeps the profile itself). */
@@ -187,11 +220,15 @@ export class Session {
     })
     const reg = registry()
     try {
-      await reg.profiles.put(meta)
+      // merge into the stored row so fields set elsewhere (e.g. lastBackupAt) are not overwritten by this stale copy
+      const current = (await reg.profiles.get(meta.id)) ?? meta
+      const merged: ProfileMeta = { ...current, locked: meta.locked, salt: meta.salt, check: meta.check }
+      if (!meta.locked) { delete merged.salt; delete merged.check }
+      await reg.profiles.put(merged)
+      this.meta = merged
     } finally {
       reg.close()
     }
-    this.meta = meta
   }
 
   close() {
@@ -228,5 +265,28 @@ export const lastProfileId = (): string | null => {
     return localStorage.getItem(LAST_KEY)
   } catch {
     return null
+  }
+}
+
+/** Ask the browser not to evict this site's storage under pressure. Safe to call repeatedly; may be refused. */
+export async function requestPersistence(): Promise<boolean> {
+  try {
+    if (!navigator.storage?.persist) return false
+    return (await navigator.storage.persisted?.()) || (await navigator.storage.persist())
+  } catch {
+    return false
+  }
+}
+
+export async function storageStatus(): Promise<{ persisted: boolean | null; usageBytes: number | null; quotaBytes: number | null }> {
+  try {
+    const est = await navigator.storage?.estimate?.()
+    return {
+      persisted: (await navigator.storage?.persisted?.()) ?? null,
+      usageBytes: est?.usage ?? null,
+      quotaBytes: est?.quota ?? null,
+    }
+  } catch {
+    return { persisted: null, usageBytes: null, quotaBytes: null }
   }
 }

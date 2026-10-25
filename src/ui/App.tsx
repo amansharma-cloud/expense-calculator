@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { formatINR } from '../engine/money'
 import { useStore } from '../state/store'
 import { Icon, Modal, useToast } from './components/common'
+import { AutoBackupRunner } from './components/DataHealth'
 import { ExpenseForm } from './components/ExpenseForm'
 import { Budget } from './pages/Budget'
 import { Dashboard } from './pages/Dashboard'
@@ -96,6 +97,7 @@ export function App() {
           <ExpenseForm onSaved={(d) => void saveNew(d)} onCancel={() => setAdding(false)} />
         </Modal>
       )}
+      <AutoBackupRunner />
       <span className="sr" aria-live="polite">{budget ? `Today's limit ${formatINR(budget.todayLimitPaise)}` : ''}</span>
     </div>
   )

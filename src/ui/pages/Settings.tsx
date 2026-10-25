@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { makeBackup, parseBackup } from '../../db/backup'
+import { parseBackup } from '../../db/backup'
 import { useStore } from '../../state/store'
-import { Alert, Confirm, download, Field, Icon, Modal, Seg, useToast } from '../components/common'
+import { Alert, Confirm, Field, Icon, Modal, Seg, useToast } from '../components/common'
+import { DataHealth } from '../components/DataHealth'
 import { ImportWizard } from '../components/ImportWizard'
 
 export function Settings() {
-  const { active, profiles, plan, savePlan, renameActive, setPin, lock, switchAway, removeProfile, wipe, replaceAll, exportData } = useStore()
+  const { active, profiles, plan, savePlan, renameActive, setPin, lock, switchAway, removeProfile, wipe, replaceAll } = useStore()
   const toast = useToast()
   const [name, setName] = useState(active?.name ?? '')
   const [pinModal, setPinModal] = useState<'set' | 'remove' | null>(null)
@@ -17,11 +18,6 @@ export function Settings() {
   const [typed, setTyped] = useState('')
   if (!active) return null
 
-  const backup = () => {
-    const stamp = new Date().toISOString().slice(0, 10)
-    download(`backup-${active.name.replace(/\W+/g, '-').toLowerCase()}-${stamp}.json`, makeBackup(active.name, exportData()), 'application/json')
-    toast('Backup downloaded')
-  }
   const onRestoreFile = async (f?: File) => {
     setRestoreErr('')
     if (!f) return
@@ -62,11 +58,12 @@ export function Settings() {
         <Seg label="Theme" value={plan.theme} onChange={(theme) => { void savePlan({ ...plan, theme }) }} options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']]} />
       </section>
 
+      <DataHealth />
+
       <section className="card stack">
-        <h2>Backup &amp; restore</h2>
-        <p className="ink2">Your data lives only in this browser. Clearing site data, uninstalling the browser, or a private/incognito window can erase it. <b>Download a backup regularly</b> and keep it somewhere safe.</p>
+        <h2>Restore from a backup</h2>
+        <p className="ink2">Your data lives only in this browser. Clearing site data, uninstalling the browser, or a private/incognito window can erase it, so keep a recent backup.</p>
         <div className="row">
-          <button className="btn primary" onClick={backup}><Icon name="download" size={18} /> Download backup</button>
           <label className="btn" style={{ cursor: 'pointer' }}><Icon name="upload" size={18} /> Restore from file
             <input hidden type="file" accept=".json,application/json" onChange={(e) => { void onRestoreFile(e.target.files?.[0]); e.target.value = '' }} />
           </label>

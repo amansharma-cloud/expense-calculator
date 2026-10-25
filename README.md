@@ -76,6 +76,9 @@ Data model: [docs/SCHEMA.md](docs/SCHEMA.md). Excel migration: [docs/EXCEL-MIGRA
 * **Not encrypted unless you set a PIN.** With a PIN, record contents are encrypted with AES-256-GCM using a key derived from the PIN (PBKDF2-SHA-256, 250,000 iterations). The key is held in memory only; the profile locks after 5 minutes in the background.
   A forgotten PIN **cannot be recovered**. Table names and record counts are not encrypted.
 * Profiles on the same device give **organisation, not strong privacy**: without a PIN, anyone using that browser can open any profile. With a PIN they cannot read the data without it.
+* **Data health (Settings):** shows whether the browser has promised not to evict the data, how much space it uses, and when you last backed up. The app asks the browser to protect its storage, and the dashboard reminds you after 14 days without a backup.
+* **Backups:** download a JSON file, share it from a phone (Drive, email…), or on Chrome/Edge pick a folder for a daily automatic backup. All backup files are plain, unencrypted JSON.
+* **Upgrades never discard data:** stored records have a format version (`DB_SCHEMA_VERSION`); migrations only add fields. Deleted records leave a marker (needed for future sync).
 * **Browser storage can be cleared** (clearing site data, uninstalling the browser, private windows, low-storage eviction). **Download a backup regularly.** Backups are plain JSON, not encrypted: keep them private.
 * Works offline after the first load. It can't sync devices, and the offline cache only holds the app's own files.
 

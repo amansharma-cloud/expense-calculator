@@ -79,6 +79,21 @@ export function parseBackup(text: string): { profileName: string; data: ProfileD
   return { profileName: isStr(f.profileName) ? f.profileName : 'Restored', data }
 }
 
+export const BACKUP_REMINDER_DAYS = 14
+
+/** Should the user be nudged to back up? Only when there is data worth losing. */
+export function backupDue(lastBackupAt: string | undefined, now: Date, hasData: boolean, days = BACKUP_REMINDER_DAYS): { due: boolean; daysSince: number | null } {
+  if (!hasData) return { due: false, daysSince: null }
+  if (!lastBackupAt) return { due: true, daysSince: null }
+  const t = Date.parse(lastBackupAt)
+  if (!Number.isFinite(t)) return { due: true, daysSince: null }
+  const daysSince = Math.floor((now.getTime() - t) / 86_400_000)
+  return { due: daysSince >= days, daysSince }
+}
+
+export const backupFileName = (profileName: string, now = new Date()) =>
+  `expense-calculator-${profileName.replace(/\W+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'profile'}-${now.toISOString().slice(0, 10)}.json`
+
 // ---------- CSV / XLSX export ----------
 
 /** Quote a CSV field; neutralise spreadsheet formulas (=, +, -, @) in text so a note cannot run as a formula. */

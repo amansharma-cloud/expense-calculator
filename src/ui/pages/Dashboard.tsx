@@ -7,6 +7,7 @@ import { useStore } from '../../state/store'
 /** Limits are shown in whole rupees, rounded down, so the app never nudges you to overspend. */
 const rs = (paise: number) => formatINR(Math.floor(paise / 100) * 100)
 import { MoneyInput } from '../components/AllocationEditor'
+import { BackupReminder } from '../components/DataHealth'
 import { Alert, Confirm, Field, Icon, Modal, StatusChip, useToast } from '../components/common'
 import { CategoryBars, DailySpendChart, Legend, RemainingChart } from '../components/charts'
 
@@ -47,6 +48,7 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
         <StatusChip status={b.status} />
       </div>
 
+      <BackupReminder />
       {b.warnings.map((w, i) => <Alert key={i} kind={b.status === 'over' || b.status === 'exhausted' ? 'bad' : 'warn'}>{w}</Alert>)}
 
       <section className="card hero" aria-label="Today">

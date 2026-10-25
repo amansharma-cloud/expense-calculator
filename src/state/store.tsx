@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  createProfile, deleteProfile, emptyData, lastProfileId, listProfiles, openProfile, rememberProfile, renameProfile,
+  createProfile, deleteProfile, emptyData, lastProfileId, listProfiles, openProfile, rememberProfile, renameProfile, requestPersistence, setLastBackup,
   type ProfileData, type ProfileMeta, type Session, WrongPinError,
 } from '../db/storage'
 import { closingBalance, computeBudget } from '../engine/budget'
@@ -61,6 +61,7 @@ interface Store {
   applyImport(plan: ImportPlan, makePlanFromLatest: boolean): Promise<void>
   replaceAll(data: ProfileData): Promise<void>
   wipe(): Promise<void>
+  markBackedUp(): Promise<void>
   exportData(): ProfileData
 }
 
@@ -114,6 +115,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLocked(null)
     setProfiles(list)
     rememberProfile(id)
+    void requestPersistence()
   }, [closeSession])
 
   const addProfile = useCallback(async (name: string, pin?: string) => {
@@ -332,6 +334,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setData(next)
   }
 
+  const markBackedUp: Store['markBackedUp'] = async () => {
+    if (!active) return
+    const iso = new Date().toISOString()
+    await setLastBackup(active.id, iso)
+    setActive((m) => (m ? { ...m, lastBackupAt: iso } : m))
+  }
+
   const wipe: Store['wipe'] = async () => {
     await s().wipe()
     setData(emptyData())
@@ -340,7 +349,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value: Store = {
     profiles, active, locked, ready, refreshProfiles, selectProfile, addProfile, removeProfile, renameActive, setPin, lock, switchAway,
     data, today, plan, cycle, budget, suggestedOpeningCarry, categories,
-    addTx, updateTx, deleteTx, addPlanned, deletePlanned, payPlanned, savePlan, startCycle, updateCycle, applyImport, replaceAll, wipe,
+    addTx, updateTx, deleteTx, addPlanned, deletePlanned, payPlanned, savePlan, startCycle, updateCycle, applyImport, replaceAll, wipe, markBackedUp,
     exportData: () => data,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
