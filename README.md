@@ -21,24 +21,27 @@ npm run build      # production build in dist/
 To try it on your phone while developing, run `npm run dev -- --host` and open the printed network address
 on the same Wi-Fi. (Offline/installable mode needs the HTTPS deployment below.)
 
-## Deploy free on GitHub Pages
+## Deploy free on Cloudflare Pages (recommended)
 
-1. Create a GitHub repo and push this folder to the `main` branch.
-2. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-3. The included workflow (`.github/workflows/deploy.yml`) runs the tests, builds, and publishes.
-4. Your app appears at `https://<user>.github.io/<repo>/`. Paths are relative, so any repo name works.
+Cloudflare Pages gives the app its **own address** (e.g. `expense-calculator.pages.dev`), so browser storage is not shared with
+any other site you host. In the Cloudflare dashboard: *Workers & Pages → Create → Pages → Connect to Git*, pick this repo, and set
 
-> **Important privacy note about GitHub Pages.** Every project site under `<user>.github.io` shares *one
-> browser origin*, and browser storage is per-origin. Any other page you host on the same `github.io` address
-> (a portfolio, a demo) could, in principle, run script that reads this app's IndexedDB.
-> To be safe: (a) turn on a **PIN** for each profile (data is then encrypted, so other scripts only see ciphertext),
-> and/or (b) host on a separate origin (a second GitHub account/org, or a custom domain), and
-> (c) never host untrusted scripts on the same origin. Never commit real financial files; `.gitignore` already
-> excludes `*.xlsx`, `*.csv` and `backup-*.json`.
+| Setting | Value |
+|---|---|
+| Production branch | `main` |
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Environment variable | `NODE_VERSION` = `22` |
+
+Every push to `main` redeploys. Leave Web Analytics off. (GitHub Pages also works, but every project under
+`<user>.github.io` shares one browser origin, so another page on that account could read this app's stored data unless profiles
+use a PIN. Use a PIN either way; never host untrusted scripts on the same origin.)
+
+Never commit real financial files; `.gitignore` already excludes `*.xlsx`, `*.csv` and `backup-*.json`. GitHub Actions (`ci.yml`) runs the tests and build on each push.
 
 ## Install on your phone
 
-Open the deployed HTTPS address in the phone's browser.
+Open the deployed HTTPS address (your `*.pages.dev` link) in the phone's browser.
 * **Android (Chrome):** menu → *Install app* / *Add to Home screen*.
 * **iPhone (Safari):** Share → *Add to Home Screen*. Installing also makes iOS far less likely to evict stored data.
 
