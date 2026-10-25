@@ -275,17 +275,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(t)
   }, [data, syncOn, runSync])
 
-  const cloudCheck: Store['cloudCheck'] = async () => {
+  // Stable identities (they only use refs and state setters): effects that depend on them must not re-run every render.
+  const cloudCheck = useCallback<Store['cloudCheck']>(async () => {
     try {
       const me = await api.current.me()
-      setSyncState((x) => ({ ...x, email: me.email }))
+      setSyncState((x) => (x.email === me.email ? x : { ...x, email: me.email }))
       return { available: true, email: me.email }
     } catch (e) {
       if (e instanceof SyncAuthError) return { available: true, needsLogin: true }
       return { available: false }
     }
-  }
-  const cloudProfiles: Store['cloudProfiles'] = () => api.current.listProfiles()
+  }, [])
+  const cloudProfiles = useCallback<Store['cloudProfiles']>(() => api.current.listProfiles(), [])
+  const signIn = useCallback(() => { window.location.href = '/login' }, [])
   const enableSync: Store['enableSync'] = async () => {
     const ses = session.current
     if (!ses) return
@@ -306,10 +308,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setActive({ ...ses.meta })
     setSyncState((x) => ({ status: 'off', email: x.email }))
   }
-  const restorePoints: Store['restorePoints'] = async () => {
-    if (!active) return []
-    return api.current.listSnapshots(active.id)
-  }
+  const activeId = active?.id
+  const restorePoints = useCallback<Store['restorePoints']>(async () => (activeId ? api.current.listSnapshots(activeId) : []), [activeId])
   const restoreFromPoint: Store['restoreFromPoint'] = async (day) => {
     const ses = session.current
     if (!ses) return
@@ -554,7 +554,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addTx, updateTx, deleteTx, addPlanned, deletePlanned, payPlanned, savePlan, startCycle, convertFixed, moveBack, dismissMoved, updateCycle, applyImport, replaceAll, wipe, markBackedUp,
     exportData: () => data,
     sync: syncState, cloudCheck, cloudProfiles, enableSync, disableSync, syncNow: runSync, restoreFromCloud,
-    signIn: () => { window.location.href = '/login' },
+    signIn,
     restorePoints, restoreFromPoint,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

@@ -55,16 +55,25 @@ export function Alert({ kind = 'warn', children }: { kind?: 'warn' | 'bad' | 'in
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   const id = useId()
+  // Callers pass a fresh inline onClose every render; keep it in a ref so the effect below runs only once.
+  // (Re-running it used to refocus the Close button and steal focus from inputs, which closed the phone keyboard.)
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null
-    ref.current?.querySelector<HTMLElement>('input,select,textarea,button')?.focus()
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const box = ref.current
+    if (box && !box.contains(document.activeElement)) {
+      // first form field, else the first action button (never the Close button), else the dialog itself
+      const first = box.querySelector<HTMLElement>('input:not([type=hidden]),select,textarea') ?? box.querySelector<HTMLElement>('button:not([aria-label="Close"])')
+      ;(first ?? box).focus()
+    }
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current()
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('keydown', onKey); prev?.focus() }
-  }, [onClose])
+  }, [])
   return (
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby={id} ref={ref}>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby={id} ref={ref} tabIndex={-1}>
         <div className="row between" style={{ marginBottom: 14 }}>
           <h2 id={id}>{title}</h2>
           <button className="btn ghost sm" onClick={onClose} aria-label="Close">✕</button>
