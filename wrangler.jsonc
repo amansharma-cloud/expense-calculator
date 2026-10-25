@@ -7,9 +7,13 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*", "/login"]
+  },
+  // Cloud sync (see docs/SYNC-SETUP.md). These identify the database and the Cloudflare Access app; they are not secrets.
+  "d1_databases": [
+    { "binding": "DB", "database_name": "expense-calculator", "database_id": "970b04f4-9f31-45cd-b155-a9fa3c2abf5e" }
+  ],
+  "vars": {
+    "ACCESS_TEAM_DOMAIN": "falling-brook-40ff.cloudflareaccess.com",
+    "ACCESS_AUD": "c3e62abf1ef519d2d1884c88c4bb1d284a14d2ffb0f318b7223e691eb0e6146f"
   }
-  // Sync (optional) needs these three things, filled in after the Cloudflare dashboard steps in docs/SYNC-SETUP.md:
-  //   "d1_databases": [{ "binding": "DB", "database_name": "expense-calculator", "database_id": "<id>" }],
-  //   "vars": { "ACCESS_TEAM_DOMAIN": "<team>.cloudflareaccess.com", "ACCESS_AUD": "<aud tag>" }
-  // Without them the app works exactly as before and the sync API answers "not configured".
 }
