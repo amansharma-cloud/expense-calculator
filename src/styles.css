@@ -208,3 +208,51 @@ details > summary { cursor: pointer; font-weight: 600; min-height: 32px; }
   .main { padding: 12px; }
   .fab { bottom: 84px; right: 14px; width: 52px; height: 52px; }
 }
+
+/* ---------- set-aside / bill editors (header row once, compact rows; stacked cards on phones) ---------- */
+.rows { display: flex; flex-direction: column; gap: 10px; }
+.rows-head { display: none; }
+.row-card { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.row-card .c-name { grid-column: 1 / -1; }
+.row-card .c-act { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+.row-card .c-type, .row-card .c-amt, .row-card .c-due { min-width: 0; }
+.bills .row-card .c-name { grid-column: 1 / -1; }
+.c-act .more { width: auto; min-width: 150px; min-height: 40px; padding: 6px 10px; font-size: .9rem; }
+.daybtn { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; text-align: left; }
+.daybtn svg { flex: none; color: var(--muted); }
+.daygrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.daygrid button { aspect-ratio: 1; min-height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); cursor: pointer; font-weight: 600; font-variant-numeric: tabular-nums; }
+.daygrid button:hover { border-color: var(--accent); }
+.daygrid button[aria-pressed='true'] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+@media (min-width: 520px) and (max-width: 1119px) {
+  .row-card { grid-template-columns: repeat(6, 1fr); }
+  .row-card .c-name { grid-column: span 3; } .row-card .c-type { grid-column: span 3; }
+  .row-card .c-amt { grid-column: span 2; } .row-card .c-due { grid-column: span 2; }
+  .row-card .c-act { grid-column: span 2; align-self: end; }
+  .bills .row-card .c-name { grid-column: span 6; } .bills .row-card .c-amt, .bills .row-card .c-due { grid-column: span 3; } .bills .row-card .c-act { grid-column: span 6; }
+  .c-act .more { min-width: 0; flex: 1; }
+}
+@media (min-width: 1120px) {
+  .rows { gap: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface); }
+  .rows-head, .row-card { display: grid; grid-template-columns: minmax(140px, 2fr) minmax(150px, 1.4fr) minmax(110px, 1fr) minmax(140px, 1fr) minmax(170px, auto); gap: 10px; align-items: center; }
+  .rows.bills .rows-head, .rows.bills .row-card { grid-template-columns: minmax(160px, 2fr) minmax(130px, 1fr) minmax(140px, 1fr) auto; }
+  .rows-head { padding: 8px 12px; font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--surface-2); }
+  .row-card { border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 8px 12px; }
+  .row-card .c-name { grid-column: auto; } .row-card .c-act { grid-column: auto; }
+  .m-only { display: none; }
+}
+@media (max-width: 1119px) { .rows-head { display: none; } }
+
+/* ---------- dashboard set-aside tile ---------- */
+.mini { list-style: none; margin: 8px 0 0; padding: 0; }
+.mini li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); }
+.mini .grow { flex: 1; min-width: 0; }
+.mini .nm { font-weight: 600; }
+.mini .sub { color: var(--muted); font-size: .82rem; }
+.mini .btn.sm { min-height: 32px; padding: 4px 14px; }
+.chip.small { padding: 2px 8px; }
+
+.grp-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: nowrap; }
+.grp-head .num { white-space: nowrap; }
+
+@media (max-width: 859px) { .main { padding-bottom: 96px; } }

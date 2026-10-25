@@ -1,6 +1,7 @@
 import { describePay, validatePay } from '../../engine/pay'
 import type { ISODate, PayCycle } from '../../engine/types'
 import { Field, Seg } from './common'
+import { DayPicker } from './DayPicker'
 
 type Key = 'monthly' | 'semimonthly' | 'biweekly' | 'weekly'
 const keyOf = (p: PayCycle): Key => (p.kind === 'interval' ? (p.everyDays === 14 ? 'biweekly' : 'weekly') : p.kind)
@@ -15,7 +16,6 @@ export function PayFields({ pay, onChange, today }: { pay: PayCycle; onChange: (
     else onChange({ kind: 'interval', everyDays: k === 'biweekly' ? 14 : 7, anchor })
   }
   const err = validatePay(pay)
-  const num = (v: string) => Number(v.replace(/\D/g, '').slice(0, 2))
   return (
     <div className="stack">
       <Field label="How often are you paid?">
@@ -24,15 +24,15 @@ export function PayFields({ pay, onChange, today }: { pay: PayCycle; onChange: (
       </Field>
       {pay.kind === 'monthly' && (
         <Field label="Pay day of the month" error={err} hint="Day 29–31 uses the last day of shorter months.">
-          <input className="input num" type="number" min={1} max={31} value={pay.day} onChange={(e) => onChange({ kind: 'monthly', day: Number(e.target.value) })} />
+          <DayPicker label="Pay day of the month" value={pay.day} onChange={(d) => d && onChange({ kind: 'monthly', day: d })} />
         </Field>
       )}
       {pay.kind === 'semimonthly' && (
         <Field label="Pay days of the month" error={err} hint="For example 1 and 15, or 15 and 31 (the last day).">
           <div className="row">
-            <input className="input num" style={{ width: 100 }} aria-label="First pay day" inputMode="numeric" value={pay.days[0]} onChange={(e) => onChange({ kind: 'semimonthly', days: [num(e.target.value), pay.days[1]] })} />
+            <div style={{ flex: '1 1 150px' }}><DayPicker label="First pay day" value={pay.days[0]} onChange={(d) => d && onChange({ kind: 'semimonthly', days: [d, pay.days[1]] })} /></div>
             <span>and</span>
-            <input className="input num" style={{ width: 100 }} aria-label="Second pay day" inputMode="numeric" value={pay.days[1]} onChange={(e) => onChange({ kind: 'semimonthly', days: [pay.days[0], num(e.target.value)] })} />
+            <div style={{ flex: '1 1 150px' }}><DayPicker label="Second pay day" value={pay.days[1]} onChange={(d) => d && onChange({ kind: 'semimonthly', days: [pay.days[0], d] })} /></div>
           </div>
         </Field>
       )}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { billsForCycle, convertAllocation } from '../src/engine/bills'
+import { billsForCycle, convertAllocation, restoreAllocation } from '../src/engine/bills'
 import { closingBalance, computeBudget } from '../src/engine/budget'
 import type { Cycle, ExpectedBill, PayCycle, Plan, PlannedItem, Transaction } from '../src/engine/types'
 
@@ -117,5 +117,58 @@ describe('moving a fixed set-aside to spending or to expected bills', () => {
     const r = convertAllocation(baseInput, 'Netflix', 'spending', opts)
     expect(r.changedCycles).toEqual([])
     expect(r.changedTransactions).toEqual([])
+  })
+})
+
+describe('moving a set-aside back (undo)', () => {
+  const alloc = (id: string, name: string, amountPaise: number) => ({ id, name, kind: 'fixed' as const, amountPaise })
+  const mk = (start: string, end: string, id: string): Cycle => ({
+    start, end, takeHomePaise: 1500000, extraCreditsPaise: 0, openingCarryPaise: 0, releasedCarryPaise: 0, source: 'app',
+    allocations: [alloc('rent-' + id, 'Rent', 230000), alloc('mom-' + id, 'Mom', 200000)],
+  })
+  const past = mk('2026-09-25', '2026-10-25', 'p')
+  const current = mk('2026-10-25', '2026-11-25', 'c')
+  const pay = (id: string, date: string, alloc: string): Transaction => ({
+    id, date, time: '10:00', amountPaise: 230000, type: 'expense', category: 'Rent', merchant: 'Rent', method: 'upi', note: '', allocationId: alloc, source: 'manual', createdAt: '',
+  })
+  const plan: Plan = { salaryDay: 25, takeHomePaise: 1500000, releasedCarryPaise: 0, theme: 'system', categories: ['Food'], allocations: [alloc('plan-rent', 'Rent', 230000), alloc('plan-mom', 'Mom', 200000)] }
+  const txs = [pay('t1', '2026-10-01', 'rent-p'), pay('t2', '2026-10-26', 'rent-c')]
+  const base = { plan, cycles: [past, current], planned: [] as PlannedItem[], transactions: txs }
+  const opts = { pastCycles: true, today: '2026-10-27', pay: monthly, newId: (() => { let n = 0; return () => 'id-' + ++n })() }
+
+  it('restores the plan, every cycle and the payment links exactly', () => {
+    const moved = convertAllocation(base, 'Rent', 'spending', opts)
+    expect(moved.plan.moved).toHaveLength(1)
+    const after = {
+      plan: moved.plan,
+      cycles: base.cycles.map((c) => moved.changedCycles.find((x) => x.start === c.start) ?? c),
+      transactions: txs.map((t) => moved.changedTransactions.find((x) => x.id === t.id) ?? t),
+      planned: base.planned,
+    }
+    expect(after.cycles.every((c) => c.allocations.every((a) => a.name !== 'Rent'))).toBe(true)
+    const back = restoreAllocation(after, moved.plan.moved![0].id)!
+    expect(back.plan.allocations.map((a) => a.name).sort()).toEqual(['Mom', 'Rent'])
+    expect(back.plan.moved).toEqual([])
+    expect(back.changedCycles.map((c) => c.start).sort()).toEqual(['2026-09-25', '2026-10-25'])
+    expect(back.changedCycles.every((c) => c.allocations.some((a) => a.name === 'Rent'))).toBe(true)
+    expect(back.changedTransactions.map((t) => t.allocationId).sort()).toEqual(['rent-c', 'rent-p'])
+    // closing balances of the past cycle are the same before the move and after undoing it
+    const restoredPast = back.changedCycles.find((c) => c.start === '2026-09-25')!
+    expect(closingBalance(restoredPast, txs)).toBe(closingBalance(past, txs))
+  })
+  it('undoing a move to expected bills also removes the bill and its unpaid reservation', () => {
+    const moved = convertAllocation(base, 'Rent', 'expected', { ...opts, newId: () => 'bill-9' })
+    const reserved = moved.addedPlanned
+    const after = { plan: moved.plan, cycles: base.cycles, transactions: txs, planned: reserved }
+    const back = restoreAllocation(after, moved.plan.moved![0].id)!
+    expect(back.plan.expectedBills).toEqual([])
+    expect(back.removedPlannedIds).toEqual(reserved.map((p) => p.id))
+  })
+  it('does nothing for an unknown id and never duplicates when the item was re-added by hand', () => {
+    expect(restoreAllocation(base, 'nope')).toBeNull()
+    const moved = convertAllocation(base, 'Rent', 'spending', opts)
+    const readded = { ...moved.plan, allocations: [...moved.plan.allocations, alloc('x', 'Rent', 230000)] }
+    const back = restoreAllocation({ plan: readded, cycles: base.cycles, transactions: txs, planned: [] }, moved.plan.moved![0].id)!
+    expect(back.plan.allocations.filter((a) => a.name === 'Rent')).toHaveLength(1)
   })
 })

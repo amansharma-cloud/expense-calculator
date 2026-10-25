@@ -166,7 +166,7 @@ export function Setup() {
       {step === 1 && (
         <>
           <p className="ink2">What is already spoken for in each pay period? These are set aside first and never offered as daily spending.</p>
-          <AllocationEditor items={items} onChange={setItems} showDue={pay.kind !== 'monthly'} />
+          <AllocationEditor items={items} onChange={setItems} />
         </>
       )}
       {step === 2 && (

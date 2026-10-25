@@ -10,7 +10,7 @@ import { PayFields } from '../components/PayFields'
 import { Alert, Field, Modal, useToast } from '../components/common'
 
 export function Budget() {
-  const { plan, savePlan, cycle, budget, updateCycle, today, convertFixed } = useStore()
+  const { plan, savePlan, cycle, budget, updateCycle, today, convertFixed, moveBack, dismissMoved } = useStore()
   const [move, setMove] = useState<{ a: Allocation; to: 'spending' | 'expected' } | null>(null)
   const [pastToo, setPastToo] = useState(true)
   const toast = useToast()
@@ -56,11 +56,26 @@ export function Budget() {
       </section>
 
       <section className="card stack">
-        <div><h2>Set aside every cycle</h2><p className="hint">Rent, EMIs, subscriptions, SIPs, savings, emergency fund, goals. These come out of your income first and are never offered as daily spending. To record a payment, use <b>Paid</b> on the dashboard (or tick “set-aside payment” when adding an expense). <b>Varies monthly</b> / <b>Treat as spending</b> are only for items whose amount changes every month.{payOf(draft).kind !== 'monthly' ? ' Give a monthly bill a due day and it is set aside only in the pay period that contains that day.' : ''}</p></div>
-        <AllocationEditor items={draft.allocations} onChange={(allocations) => setDraft({ ...draft, allocations })} showDue={payOf(draft).kind !== 'monthly'}
+        <div><h2>Set aside every cycle</h2><p className="hint">Rent, EMIs, subscriptions, SIPs, savings, emergency fund, goals. These come out of your income first and are never offered as daily spending. To record a payment, use <b>Paid</b> on the dashboard (or just add the expense: it is recognised). Use <b>More…</b> on an item only if its amount changes every month.{payOf(draft).kind !== 'monthly' ? ' Give a monthly bill a due day and it is set aside only in the pay period that contains that day.' : ''}</p></div>
+        <AllocationEditor items={draft.allocations} onChange={(allocations) => setDraft({ ...draft, allocations })}
           onConvert={dirty ? undefined : (a, to) => setMove({ a, to })} />
-        {dirty && <p className="hint">Save your changes to see the “Varies monthly” and “Treat as spending” options for each item.</p>}
+        {dirty && <p className="hint">Save your changes to see the “More…” options (varies monthly / treat as spending) for each item.</p>}
       </section>
+
+      {(plan.moved?.length ?? 0) > 0 && (
+        <section className="card stack">
+          <div><h2>Moved out of set-asides</h2><p className="hint">These used to be set aside every cycle. Move one back to put it as it was (including its past cycles and payments).</p></div>
+          <ul className="list">
+            {plan.moved!.map((m) => (
+              <li key={m.id}>
+                <div className="grow"><div className="title">{m.name}</div><div className="small muted">now {m.to === 'expected' ? 'an expected bill' : 'counted as spending'}{m.planAllocation ? ` · was ${formatMoney(m.planAllocation.amountPaise)} per cycle` : ''}</div></div>
+                <button className="btn sm" onClick={async () => { await moveBack(m.id); toast(`${m.name} is set aside again`) }}>Move back to set-aside</button>
+                <button className="btn ghost sm" onClick={() => void dismissMoved(m.id)}>Dismiss</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="card stack">
         <div><h2>Expected bills (amount varies)</h2><p className="hint">Electricity, mobile recharge… bills that come every cycle but cost something different each time. The usual amount is <b>reserved</b> from your daily limit until you mark the bill paid and enter the real amount; the difference then goes into your spending.</p></div>
@@ -98,6 +113,7 @@ export function Budget() {
               {move.to === 'expected'
                 ? `It will no longer be set aside as a fixed amount. Each cycle ${formatMoney(move.a.amountPaise)} is reserved as an estimate, and when you pay the bill you enter the real amount.`
                 : 'It will no longer be set aside. Payments simply count as spending when you record them.'}
+              {' '}You can move it back from this page at any time.
             </p>
             <label className="row"><input type="checkbox" checked={pastToo} onChange={(e) => setPastToo(e.target.checked)} /> Also change past cycles (their balances stay exactly the same; the bill just counts as spending there)</label>
             <div className="row" style={{ justifyContent: 'flex-end' }}>

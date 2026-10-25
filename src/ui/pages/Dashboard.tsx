@@ -5,6 +5,7 @@ import { cycleLabel, isValidDate, shortDate } from '../../engine/dates'
 import { formatMoney, parseAmount, validateAmount } from '../../engine/money'
 import type { Allocation, PayMethod, PlannedItem } from '../../engine/types'
 import { useStore } from '../../state/store'
+import { ordinal } from '../components/DayPicker'
 
 /** Limits are shown in whole rupees, rounded down, so the app never nudges you to overspend. */
 const rs = (paise: number) => formatMoney(Math.floor(paise / 100) * 100)
@@ -103,43 +104,6 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
       </div>
 
       <div className="grid cols-2">
-        <section className="card" aria-label="Where the money goes">
-          <h2>Where the money goes</h2>
-          <p className="hint">Regular spending this cycle, by category.</p>
-          <CategoryBars rows={cats} />
-        </section>
-        <section className="card" aria-label="Set aside">
-          <h2>Set aside this cycle</h2>
-          <p className="hint">Already taken out of your spendable budget. Tap <b>Paid</b> when you pay one; it is ticked off here and not counted as spending.</p>
-          {cycle.allocations.filter((a) => a.amountPaise > 0).length === 0 && <p className="muted">Nothing set aside. Add bills and investments under Budget.</p>}
-          {kinds.map(([k, title]) => {
-            const items = cycle.allocations.filter((a) => a.kind === k && a.amountPaise > 0)
-            if (!items.length) return null
-            const planned = items.reduce((s, a) => s + a.amountPaise, 0)
-            const paid = items.reduce((s, a) => s + Math.min(a.amountPaise, b.allocationPaid[a.id] ?? 0), 0)
-            return (
-              <div key={k} style={{ margin: '12px 0' }}>
-                <div className="row between"><b>{title}</b><span className="num small">{formatMoney(paid)} of {formatMoney(planned)}</span></div>
-                <div className="bar" role="progressbar" aria-valuenow={Math.round((paid / planned) * 100)} aria-valuemin={0} aria-valuemax={100} aria-label={`${title} paid`}><i style={{ width: `${(paid / planned) * 100}%`, background: 'var(--s3)' }} /></div>
-                <ul className="list">
-                  {items.map((a) => {
-                    const done = b.allocationPaid[a.id] ?? 0
-                    const full = done >= a.amountPaise
-                    return (
-                      <li key={a.id}>
-                        <div className="grow"><div className="title">{a.name}</div><div className="small muted">{formatMoney(Math.max(0, done))} of {formatMoney(a.amountPaise)}{a.dueDay ? ` · due day ${a.dueDay}` : ''}</div></div>
-                        {full ? <span className="chip good"><Icon name="check" size={14} /> Paid</span> : <button className="btn sm" onClick={() => setPayingAlloc(a)}>Paid</button>}
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            )
-          })}
-        </section>
-      </div>
-
-      <div className="grid cols-2">
         <section className="card" aria-label="Upcoming bills">
           <div className="row between"><h2>Upcoming &amp; planned</h2><button className="btn sm" onClick={() => setPlanning(true)}><Icon name="plus" size={16} /> Add</button></div>
           <p className="hint">Reserved from your daily limit until paid.</p>
@@ -156,6 +120,49 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
             </ul>
           )}
         </section>
+        <section className="card" aria-label="Where the money goes">
+          <h2>Where the money goes</h2>
+          <p className="hint">Regular spending this cycle, by category.</p>
+          <CategoryBars rows={cats} />
+        </section>
+      </div>
+
+      <section className="card" aria-label="Set aside">
+        <h2>Set aside this cycle</h2>
+        <p className="hint">Already taken out of your spendable budget. Tap <b>Paid</b> when you pay one: it is ticked off here and not counted as spending.</p>
+        {cycle.allocations.filter((a) => a.amountPaise > 0).length === 0 && <p className="muted">Nothing set aside. Add bills and investments under Budget.</p>}
+        <div className="grid cols-2" style={{ marginTop: 8 }}>
+          {kinds.map(([k, title]) => {
+            const items = cycle.allocations.filter((a) => a.kind === k && a.amountPaise > 0)
+            if (!items.length) return null
+            const planned = items.reduce((s, a) => s + a.amountPaise, 0)
+            const paid = items.reduce((s, a) => s + Math.min(a.amountPaise, b.allocationPaid[a.id] ?? 0), 0)
+            return (
+              <div key={k}>
+                <div className="grp-head"><b>{title}</b><span className="num small muted">{formatMoney(paid)} of {formatMoney(planned)}</span></div>
+                <div className="bar" style={{ marginTop: 6 }} role="progressbar" aria-valuenow={Math.round((paid / planned) * 100)} aria-valuemin={0} aria-valuemax={100} aria-label={`${title} paid`}><i style={{ width: `${(paid / planned) * 100}%`, background: 'var(--s3)' }} /></div>
+                <ul className="mini">
+                  {items.map((a) => {
+                    const done = b.allocationPaid[a.id] ?? 0
+                    const full = done >= a.amountPaise
+                    return (
+                      <li key={a.id}>
+                        <div className="grow">
+                          <span className="nm">{a.name}</span>
+                          <div className="sub num">{full ? formatMoney(done) : `${formatMoney(Math.max(0, done))} of ${formatMoney(a.amountPaise)}`}{a.dueDay ? ` · due ${ordinal(a.dueDay)}` : ''}</div>
+                        </div>
+                        {full ? <span className="chip good small"><Icon name="check" size={14} /> Paid</span> : <button className="btn sm" aria-label={`Mark ${a.name} paid`} onClick={() => setPayingAlloc(a)}>Paid</button>}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      <div className="grid cols-2">
         <section className="card" aria-label="Recent">
           <div className="row between"><h2>Recent</h2><a href="#/transactions" className="small">See all</a></div>
           {recent.length === 0 ? <p className="muted">Nothing recorded yet this cycle. If you spend today, add it so the limit stays accurate.</p> : (
@@ -169,9 +176,7 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
             </ul>
           )}
         </section>
-      </div>
-
-      <section className="card">
+        <section className="card">
         <details>
           <summary>How is today’s limit calculated?</summary>
           <table className="explain" style={{ marginTop: 8 }}>
@@ -191,6 +196,7 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
           </p>
         </details>
       </section>
+      </div>
 
       {paying && (
         <PayDialog item={paying} today={today} onClose={() => setPaying(null)} onPay={async (amountPaise, date, method) => {

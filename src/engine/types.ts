@@ -86,6 +86,24 @@ export interface ExpectedBill {
   category: string
 }
 
+/**
+ * Remembers what a set-aside looked like before it was moved to spending / expected bills, so the move can be undone.
+ */
+export interface MovedItem {
+  id: string
+  name: string
+  to: 'spending' | 'expected'
+  at: string
+  /** The plan-level set-aside (if the plan had one). */
+  planAllocation?: Allocation
+  /** The set-aside as it was in each cycle it was removed from. */
+  cycleAllocations: { start: ISODate; allocation: Allocation }[]
+  /** Payments that were counted against it (restored on undo). */
+  txLinks: { id: string; allocationId: string }[]
+  /** The expected bill created by the move, if any. */
+  billId?: string
+}
+
 /** How often pay arrives. A cycle runs from one payday to the day before the next. */
 export type PayCycle =
   | { kind: 'monthly'; day: number }
@@ -103,6 +121,8 @@ export interface Plan {
   releasedCarryPaise: Paise
   allocations: Allocation[]
   expectedBills?: ExpectedBill[]
+  /** Set-asides moved to spending / expected bills, kept so they can be moved back. */
+  moved?: MovedItem[]
   categories: string[]
   theme: 'system' | 'light' | 'dark'
 }

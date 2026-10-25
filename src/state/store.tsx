@@ -6,7 +6,7 @@ import {
 import { closingBalance, computeBudget } from '../engine/budget'
 import { setActiveCurrency } from '../engine/currency'
 import { todayISO } from '../engine/dates'
-import { billsForCycle, convertAllocation } from '../engine/bills'
+import { billsForCycle, convertAllocation, restoreAllocation } from '../engine/bills'
 import { allocationsForCycle, nextCycleBounds, payOf } from '../engine/pay'
 import { DEFAULT_CATEGORIES } from '../engine/quick'
 import type { Allocation, BudgetResult, Cycle, Paise, Plan, PlannedItem, Transaction } from '../engine/types'
@@ -67,6 +67,9 @@ interface Store {
   startCycle(input: NewCycleInput, planOverride?: Plan): Promise<void>
   /** Move a fixed set-aside to spending or to an expected bill. Returns how many cycles were changed. */
   convertFixed(name: string, to: 'spending' | 'expected', pastCycles: boolean): Promise<number>
+  /** Undo convertFixed: the item is set aside again, in the plan and in every cycle it was taken from. */
+  moveBack(movedId: string): Promise<void>
+  dismissMoved(movedId: string): Promise<void>
   updateCycle(c: Cycle): Promise<void>
   applyImport(plan: ImportPlan, makePlanFromLatest: boolean): Promise<void>
   replaceAll(data: ProfileData): Promise<void>
@@ -466,6 +469,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return r.cyclesTouched
   }
 
+  const moveBack: Store['moveBack'] = async (movedId) => {
+    const base = data.plan ?? plan
+    const r = restoreAllocation({ plan: base, cycles: data.cycles, transactions: data.transactions, planned: data.planned }, movedId)
+    if (!r) return
+    const ses = s()
+    await ses.put('plan', 'plan', r.plan)
+    if (r.changedCycles.length) await ses.putMany('cycles', r.changedCycles.map((c) => ({ id: c.start, value: c })))
+    if (r.changedTransactions.length) await ses.putMany('transactions', r.changedTransactions.map((t) => ({ id: t.id, value: t })))
+    for (const id of r.removedPlannedIds) await ses.remove('planned', id)
+    setData((d) => ({
+      ...d,
+      plan: r.plan,
+      cycles: d.cycles.map((c) => r.changedCycles.find((x) => x.start === c.start) ?? c),
+      transactions: d.transactions.map((t) => r.changedTransactions.find((x) => x.id === t.id) ?? t),
+      planned: d.planned.filter((p) => !r.removedPlannedIds.includes(p.id)),
+    }))
+  }
+  const dismissMoved: Store['dismissMoved'] = async (movedId) => {
+    const base = data.plan ?? plan
+    const next = { ...base, moved: (base.moved ?? []).filter((m) => m.id !== movedId) }
+    await s().put('plan', 'plan', next)
+    setData((d) => ({ ...d, plan: next }))
+  }
+
   const updateCycle: Store['updateCycle'] = async (c) => {
     await s().put('cycles', c.start, c)
     setData((d) => ({ ...d, cycles: d.cycles.map((x) => (x.start === c.start ? c : x)) }))
@@ -524,7 +551,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value: Store = {
     profiles, active, locked, ready, refreshProfiles, selectProfile, addProfile, removeProfile, renameActive, setPin, lock, switchAway,
     data, today, plan, cycle, budget, suggestedOpeningCarry, nextBounds: nextCycleBounds(today, payOf(plan), data.cycles), categories,
-    addTx, updateTx, deleteTx, addPlanned, deletePlanned, payPlanned, savePlan, startCycle, convertFixed, updateCycle, applyImport, replaceAll, wipe, markBackedUp,
+    addTx, updateTx, deleteTx, addPlanned, deletePlanned, payPlanned, savePlan, startCycle, convertFixed, moveBack, dismissMoved, updateCycle, applyImport, replaceAll, wipe, markBackedUp,
     exportData: () => data,
     sync: syncState, cloudCheck, cloudProfiles, enableSync, disableSync, syncNow: runSync, restoreFromCloud,
     signIn: () => { window.location.href = '/login' },
