@@ -26,6 +26,10 @@ available = take-home salary + other credits (cycle field) + one-off "income" tr
 subtracted from `available` first. A payment tagged to one of them (`allocationId`) **settles** it and is *not*
 spending, so nothing is counted twice. If you pay more than planned, only the excess is taken from the spendable budget.
 
+## Expected bills
+
+Bills whose amount changes (electricity, recharge) are listed under Budget → Expected bills. Each cycle they become planned items with the usual amount, reserved from the daily limit until paid. Paying records the **real** amount as an ordinary expense, so the difference from the estimate moves into spending (or back into the remaining budget). Converting a fixed set-aside into an expected bill or plain spending never changes a closed cycle's closing balance.
+
 ## Spending
 
 ```

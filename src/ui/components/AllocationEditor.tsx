@@ -1,7 +1,7 @@
 import { getCurrency } from '../../engine/currency'
 import { useEffect, useState } from 'react'
 import { parseAmount } from '../../engine/money'
-import type { Allocation, AllocationKind, Paise } from '../../engine/types'
+import type { Allocation, AllocationKind, ExpectedBill, Paise } from '../../engine/types'
 import { Icon } from './common'
 
 /** Text input that edits an amount in rupees but reports integer paise (or null while invalid). */
@@ -25,7 +25,11 @@ export function MoneyInput({ value, onChange, id, label, allowZero = true, inval
 
 const KIND_LABEL: Record<AllocationKind, string> = { fixed: 'Fixed bill / EMI', investment: 'Investment / saving', reserved: 'Reserved / goal' }
 
-export function AllocationEditor({ items, onChange, showDue = false }: { items: Allocation[]; onChange: (a: Allocation[]) => void; showDue?: boolean }) {
+export function AllocationEditor({ items, onChange, showDue = false, onConvert }: {
+  items: Allocation[]; onChange: (a: Allocation[]) => void; showDue?: boolean
+  /** When given, fixed items get buttons to move them to expected bills / spending (only for saved items). */
+  onConvert?: (a: Allocation, to: 'spending' | 'expected') => void
+}) {
   const update = (id: string, patch: Partial<Allocation>) => onChange(items.map((a) => (a.id === id ? { ...a, ...patch } : a)))
   return (
     <div className="stack">
@@ -53,6 +57,12 @@ export function AllocationEditor({ items, onChange, showDue = false }: { items: 
                 onChange={(e) => { const n = Number(e.target.value.replace(/\D/g, '').slice(0, 2)); update(a.id, { dueDay: n >= 1 && n <= 31 ? n : undefined }) }} />
             </div>
           )}
+          {onConvert && a.kind === 'fixed' && a.name.trim() && (
+            <div className="row" style={{ gap: 4 }}>
+              <button type="button" className="btn sm" title="The amount changes every month (electricity, recharge…): reserve an estimate until you pay it" onClick={() => onConvert(a, 'expected')}>Amount varies</button>
+              <button type="button" className="btn ghost sm" title="Treat it as ordinary spending" onClick={() => onConvert(a, 'spending')}>Make spending</button>
+            </div>
+          )}
           <button type="button" className="btn ghost danger" aria-label={`Remove ${a.name}`} onClick={() => onChange(items.filter((x) => x.id !== a.id))}><Icon name="trash" size={18} /></button>
         </div>
       ))}
@@ -60,6 +70,37 @@ export function AllocationEditor({ items, onChange, showDue = false }: { items: 
         <button type="button" className="btn" onClick={() => onChange([...items, { id: crypto.randomUUID(), name: '', kind: 'fixed', amountPaise: 0 }])}>
           <Icon name="plus" size={18} /> Add item
         </button>
+      </div>
+    </div>
+  )
+}
+
+/** Bills that come every cycle with a changing amount. The estimate is reserved until you pay the real amount. */
+export function ExpectedBillsEditor({ items, onChange }: { items: ExpectedBill[]; onChange: (b: ExpectedBill[]) => void }) {
+  const update = (id: string, patch: Partial<ExpectedBill>) => onChange(items.map((b) => (b.id === id ? { ...b, ...patch } : b)))
+  return (
+    <div className="stack">
+      {items.length === 0 && <p className="muted">None yet. Add bills like electricity or mobile recharge: you enter the real amount when you pay.</p>}
+      {items.map((b) => (
+        <div key={b.id} className="row" style={{ alignItems: 'flex-end' }}>
+          <div className="field" style={{ flex: '2 1 160px' }}>
+            <label className="lbl" htmlFor={'bn' + b.id}>Bill</label>
+            <input id={'bn' + b.id} className="input" value={b.name} onChange={(e) => update(b.id, { name: e.target.value, category: b.category === b.name || !b.category ? e.target.value : b.category })} />
+          </div>
+          <div className="field" style={{ flex: '1 1 130px' }}>
+            <label className="lbl" htmlFor={'be' + b.id}>Usual amount ({getCurrency().symbol})</label>
+            <MoneyInput id={'be' + b.id} label={`${b.name} usual amount`} value={b.estimatePaise} onChange={(p) => p !== null && update(b.id, { estimatePaise: p })} />
+          </div>
+          <div className="field" style={{ flex: '0 1 110px' }}>
+            <label className="lbl" htmlFor={'bd' + b.id}>Due day</label>
+            <input id={'bd' + b.id} className="input num" inputMode="numeric" placeholder="any" value={b.dueDay ?? ''}
+              onChange={(e) => { const n = Number(e.target.value.replace(/\D/g, '').slice(0, 2)); update(b.id, { dueDay: n >= 1 && n <= 31 ? n : undefined }) }} />
+          </div>
+          <button type="button" className="btn ghost danger" aria-label={`Remove ${b.name}`} onClick={() => onChange(items.filter((x) => x.id !== b.id))}><Icon name="trash" size={18} /></button>
+        </div>
+      ))}
+      <div>
+        <button type="button" className="btn" onClick={() => onChange([...items, { id: crypto.randomUUID(), name: '', estimatePaise: 0, category: '' }])}><Icon name="plus" size={18} /> Add expected bill</button>
       </div>
     </div>
   )

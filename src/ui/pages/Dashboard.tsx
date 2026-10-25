@@ -1,15 +1,16 @@
 import { getCurrency } from '../../engine/currency'
 import { useState } from 'react'
 import { cycleTransactions, dailySeries, spendByCategory } from '../../engine/budget'
-import { cycleLabel, isValidDate, shortDate, todayISO } from '../../engine/dates'
+import { cycleLabel, isValidDate, shortDate } from '../../engine/dates'
 import { formatMoney, parseAmount, validateAmount } from '../../engine/money'
+import type { PayMethod, PlannedItem } from '../../engine/types'
 import { useStore } from '../../state/store'
 
 /** Limits are shown in whole rupees, rounded down, so the app never nudges you to overspend. */
 const rs = (paise: number) => formatMoney(Math.floor(paise / 100) * 100)
 import { MoneyInput } from '../components/AllocationEditor'
 import { BackupReminder } from '../components/DataHealth'
-import { Alert, Confirm, Field, Icon, Modal, StatusChip, useToast } from '../components/common'
+import { Alert, Confirm, Field, Icon, Modal, Seg, StatusChip, useToast } from '../components/common'
 import { CategoryBars, DailySpendChart, Legend, RemainingChart } from '../components/charts'
 
 function Ring({ spent, limit, over }: { spent: number; limit: number; over: boolean }) {
@@ -28,6 +29,7 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
   const toast = useToast()
   const [planning, setPlanning] = useState(false)
   const [delPlan, setDelPlan] = useState<string | null>(null)
+  const [paying, setPaying] = useState<PlannedItem | null>(null)
   if (!cycle || !budget) return null
   const b = budget
   const txs = cycleTransactions(cycle, data.transactions)
@@ -132,12 +134,9 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
             <ul className="list">
               {upcoming.map((p) => (
                 <li key={p.id}>
-                  <div className="grow"><div className="title">{p.title}</div><div className="small muted">due {shortDate(p.dueDate)}{p.dueDate < today ? ' · overdue' : ''}</div></div>
+                  <div className="grow"><div className="title">{p.title}</div><div className="small muted">{p.id.startsWith('exp-') ? 'expected · estimate · ' : ''}due {shortDate(p.dueDate)}{p.dueDate < today ? ' · overdue' : ''}</div></div>
                   <span className="amt num">{formatMoney(p.amountPaise)}</span>
-                  <button className="btn sm" onClick={async () => {
-                    await payPlanned(p, { date: todayISO(), time: new Date().toTimeString().slice(0, 5), amountPaise: p.amountPaise, type: 'expense', category: p.category || 'Other', merchant: p.title, method: 'upi', note: 'Planned item paid', source: 'manual' })
-                    toast('Marked paid and recorded')
-                  }}>Paid</button>
+                  <button className="btn sm" onClick={() => setPaying(p)}>Paid</button>
                   <button className="btn ghost sm" aria-label={`Remove ${p.title}`} onClick={() => setDelPlan(p.id)}><Icon name="trash" size={16} /></button>
                 </li>
               ))}
@@ -180,6 +179,13 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
         </details>
       </section>
 
+      {paying && (
+        <PayDialog item={paying} today={today} onClose={() => setPaying(null)} onPay={async (amountPaise, date, method) => {
+          await payPlanned(paying, { date, time: new Date().toTimeString().slice(0, 5), amountPaise, type: 'expense', category: paying.category || 'Other', merchant: paying.title, method, note: paying.id.startsWith('exp-') ? 'Expected bill paid' : 'Planned item paid', source: 'manual' })
+          setPaying(null)
+          toast(`Recorded ${formatMoney(amountPaise)} for ${paying.title}`)
+        }} />
+      )}
       {planning && <PlannedForm onClose={() => setPlanning(false)} onSave={async (p) => { await addPlanned(p); setPlanning(false) }} defaultDate={today} />}
       {delPlan && <Confirm title="Remove planned item?" body="It will no longer be reserved from your daily limit." confirmLabel="Remove" onCancel={() => setDelPlan(null)} onConfirm={async () => { await deletePlanned(delPlan); setDelPlan(null) }} />}
     </div>
@@ -200,6 +206,29 @@ function PlannedForm({ onClose, onSave, defaultDate }: { onClose: () => void; on
         <Field label={`Amount (${getCurrency().symbol})`} error={sub ? err : null}><MoneyInput label="Amount" value={amt} onChange={(p) => { setAmt(p ?? 0); setText(p === null ? 'x' : String((p ?? 0) / 100)) }} /></Field>
         <Field label="Due date" error={sub && !isValidDate(due) ? 'Enter a valid date' : null}><input className="input" type="date" value={due} onChange={(e) => setDue(e.target.value)} /></Field>
         <div className="row" style={{ justifyContent: 'flex-end' }}><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn primary">Reserve it</button></div>
+      </form>
+    </Modal>
+  )
+}
+
+/** Record what a planned or expected bill really cost. The estimate was reserved; the real amount replaces it. */
+function PayDialog({ item, today, onClose, onPay }: { item: PlannedItem; today: string; onClose: () => void; onPay: (amountPaise: number, date: string, method: PayMethod) => void }) {
+  const [amt, setAmt] = useState(item.amountPaise)
+  const [date, setDate] = useState(today)
+  const [method, setMethod] = useState<PayMethod>('upi')
+  const [sub, setSub] = useState(false)
+  const err = amt > 0 ? null : 'Enter the amount you paid'
+  const diff = amt - item.amountPaise
+  return (
+    <Modal title={`Paid: ${item.title}`} onClose={onClose}>
+      <form className="stack" noValidate onSubmit={(e) => { e.preventDefault(); setSub(true); if (err || !isValidDate(date)) return; onPay(amt, date, method) }}>
+        <Field label={`Amount you paid (${getCurrency().symbol})`} error={sub ? err : null} hint={`Estimate was ${formatMoney(item.amountPaise)}.`}>
+          <MoneyInput label="Amount paid" value={amt} onChange={(p) => setAmt(p ?? 0)} />
+        </Field>
+        {amt > 0 && diff !== 0 && <p className="hint">{diff > 0 ? `${formatMoney(diff)} more than the estimate: it comes out of your remaining budget.` : `${formatMoney(-diff)} less than the estimate: it goes back to your remaining budget.`}</p>}
+        <Field label="Date" error={sub && !isValidDate(date) ? 'Enter a valid date' : null}><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+        <Field label="Paid with"><Seg label="Payment method" value={method} onChange={setMethod} options={[['upi', 'UPI'], ['card', 'Card'], ['cash', 'Cash'], ['bank', 'Bank'], ['other', 'Other']]} /></Field>
+        <div className="row" style={{ justifyContent: 'flex-end' }}><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn primary">Record payment</button></div>
       </form>
     </Modal>
   )

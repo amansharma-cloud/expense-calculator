@@ -6,6 +6,7 @@ import {
 import { closingBalance, computeBudget } from '../engine/budget'
 import { setActiveCurrency } from '../engine/currency'
 import { todayISO } from '../engine/dates'
+import { billsForCycle, convertAllocation } from '../engine/bills'
 import { allocationsForCycle, nextCycleBounds, payOf } from '../engine/pay'
 import { DEFAULT_CATEGORIES } from '../engine/quick'
 import type { Allocation, BudgetResult, Cycle, Paise, Plan, PlannedItem, Transaction } from '../engine/types'
@@ -64,6 +65,8 @@ interface Store {
   payPlanned(p: PlannedItem, tx: Omit<Transaction, 'id' | 'createdAt'>): Promise<void>
   savePlan(plan: Plan): Promise<void>
   startCycle(input: NewCycleInput, planOverride?: Plan): Promise<void>
+  /** Move a fixed set-aside to spending or to an expected bill. Returns how many cycles were changed. */
+  convertFixed(name: string, to: 'spending' | 'expected', pastCycles: boolean): Promise<number>
   updateCycle(c: Cycle): Promise<void>
   applyImport(plan: ImportPlan, makePlanFromLatest: boolean): Promise<void>
   replaceAll(data: ProfileData): Promise<void>
@@ -403,7 +406,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       nextCycle = { ...cycle, takeHomePaise: p.takeHomePaise, releasedCarryPaise: Math.min(p.releasedCarryPaise, Math.max(0, cycle.openingCarryPaise)), allocations: allocationsForCycle(p.allocations, cycle.start, cycle.end, payOf(p)) }
       await s().put('cycles', nextCycle.start, nextCycle)
     }
-    setData((d) => ({ ...d, plan: p, cycles: nextCycle ? d.cycles.map((c) => (c.start === nextCycle!.start ? nextCycle! : c)) : d.cycles }))
+    // keep this cycle's reserved estimates in step with the expected-bills list
+    let planned = data.planned
+    if (cycle) {
+      const wanted = billsForCycle(p.expectedBills, cycle.start, cycle.end, payOf(p))
+      const oldIds = new Set((data.plan?.expectedBills ?? []).map((b) => b.id))
+      const sfx = `-${cycle.start}`
+      const isMine = (id: string) => id.startsWith('exp-') && id.endsWith(sfx)
+      const upsert: PlannedItem[] = []
+      for (const w of wanted) {
+        const have = planned.find((x) => x.id === w.id)
+        const billId = w.id.slice(4, w.id.length - sfx.length)
+        if (!have && !oldIds.has(billId)) upsert.push(w) // a bill added now is reserved for this cycle too
+        else if (have && !have.done && (have.amountPaise !== w.amountPaise || have.title !== w.title || have.dueDate !== w.dueDate)) upsert.push({ ...have, amountPaise: w.amountPaise, title: w.title, dueDate: w.dueDate })
+      }
+      const keep = new Set(wanted.map((w) => w.id))
+      const drop = planned.filter((x) => isMine(x.id) && !x.done && !keep.has(x.id))
+      for (const x of drop) await s().remove('planned', x.id)
+      if (upsert.length) await s().putMany('planned', upsert.map((x) => ({ id: x.id, value: x })))
+      planned = [...planned.filter((x) => !drop.some((d) => d.id === x.id) && !upsert.some((u) => u.id === x.id)), ...upsert]
+    }
+    setData((d) => ({ ...d, plan: p, planned, cycles: nextCycle ? d.cycles.map((c) => (c.start === nextCycle!.start ? nextCycle! : c)) : d.cycles }))
   }
 
   const startCycle: Store['startCycle'] = async (input, planOverride) => {
@@ -418,7 +441,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     await s().put('cycles', c.start, c)
     await s().put('plan', 'plan', pl)
-    setData((d) => ({ ...d, plan: pl, cycles: [...d.cycles.filter((x) => x.start !== c.start), c] }))
+    // expected bills (electricity, recharge…) are reserved for the new cycle as estimates
+    const known = new Set(data.planned.map((p) => p.id))
+    const reserved = billsForCycle(pl.expectedBills, start, end, pay).filter((p) => !known.has(p.id))
+    if (reserved.length) await s().putMany('planned', reserved.map((p) => ({ id: p.id, value: p })))
+    setData((d) => ({ ...d, plan: pl, cycles: [...d.cycles.filter((x) => x.start !== c.start), c], planned: [...d.planned, ...reserved] }))
+  }
+
+  const convertFixed: Store['convertFixed'] = async (name, to, pastCycles) => {
+    const base = data.plan ?? plan
+    const r = convertAllocation({ plan: base, cycles: data.cycles, transactions: data.transactions, planned: data.planned }, name, to, { pastCycles, today, pay: payOf(base), newId: uid })
+    const ses = s()
+    await ses.put('plan', 'plan', r.plan)
+    if (r.changedCycles.length) await ses.putMany('cycles', r.changedCycles.map((c) => ({ id: c.start, value: c })))
+    if (r.changedTransactions.length) await ses.putMany('transactions', r.changedTransactions.map((t) => ({ id: t.id, value: t })))
+    if (r.addedPlanned.length) await ses.putMany('planned', r.addedPlanned.map((p) => ({ id: p.id, value: p })))
+    setData((d) => ({
+      ...d,
+      plan: r.plan,
+      cycles: d.cycles.map((c) => r.changedCycles.find((x) => x.start === c.start) ?? c),
+      transactions: d.transactions.map((t) => r.changedTransactions.find((x) => x.id === t.id) ?? t),
+      planned: [...d.planned, ...r.addedPlanned],
+    }))
+    return r.cyclesTouched
   }
 
   const updateCycle: Store['updateCycle'] = async (c) => {
@@ -445,6 +490,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         takeHomePaise: latest.takeHomePaise,
         releasedCarryPaise: latest.allocations.filter(isBuffer).reduce((s, a) => s + a.amountPaise, 0),
         allocations: latest.allocations.filter((a) => !isBuffer(a)).map((a) => ({ ...a, id: uid() })),
+        // varying bills seen in the latest imported month become expected bills with that month's amount as the estimate
+        expectedBills: imp.expected.filter((e) => e.cycleStart === latest.start).map((e) => ({ id: uid(), name: e.name, estimatePaise: e.amountPaise, category: e.name })),
         categories: [...cats],
       }
       await ses.put('plan', 'plan', nextPlan)
@@ -477,7 +524,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value: Store = {
     profiles, active, locked, ready, refreshProfiles, selectProfile, addProfile, removeProfile, renameActive, setPin, lock, switchAway,
     data, today, plan, cycle, budget, suggestedOpeningCarry, nextBounds: nextCycleBounds(today, payOf(plan), data.cycles), categories,
-    addTx, updateTx, deleteTx, addPlanned, deletePlanned, payPlanned, savePlan, startCycle, updateCycle, applyImport, replaceAll, wipe, markBackedUp,
+    addTx, updateTx, deleteTx, addPlanned, deletePlanned, payPlanned, savePlan, startCycle, convertFixed, updateCycle, applyImport, replaceAll, wipe, markBackedUp,
     exportData: () => data,
     sync: syncState, cloudCheck, cloudProfiles, enableSync, disableSync, syncNow: runSync, restoreFromCloud,
     signIn: () => { window.location.href = '/login' },

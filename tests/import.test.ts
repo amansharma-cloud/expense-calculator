@@ -22,14 +22,14 @@ function makeBook(): ArrayBuffer {
   const wb = XLSX.utils.book_new()
   const rows1: Row[] = [
     ['Savings', 0], ['Rent', 20000], ['Mom', 10000], ['Jupiter Savings', 5000], ['Mutual Fund 1', 2000],
-    ['Digital Gold', 1500], ['Food/Grocery', 600, '100+200+300'], ['Cash', 3000], ['Weird New Thing', 250.5],
+    ['Digital Gold', 1500], ['Food/Grocery', 600, '100+200+300'], ['Electricity Bill', 1830], ['Cash', 3000], ['Weird New Thing', 250.5],
   ]
   // total 500000 + 100000 salary + 250 credit = 600250 ; rows = 42350.5 ; balance = 557899.5
-  sheet(wb, 'September 2026 Expenses', [600250, '500000+100000+250'], 557899.5, rows1)
+  sheet(wb, 'September 2026 Expenses', [600250, '500000+100000+250'], 556069.5, rows1)
   const rows2: Row[] = [['Rent', 20000], ['Mom', 10000], ['Food/Grocery', 900, '400+500'], ['Recharge Airtel/Jio', 1100]]
   // opens 557899.5 + 5000 (unexplained) + 100000 salary ; rows = 32000
   // true balance 630899.5 - 32000 = 630899.5-32000 ; sheet double counts Recharge (1100): shows 598999.5? -> 662899.5-32000-1100
-  sheet(wb, 'October 2026 Expenses', [662899.5, '562899.5+100000'], 629799.5, rows2)
+  sheet(wb, 'October 2026 Expenses', [661069.5, '561069.5+100000'], 627969.5, rows2)
   wb.SheetNames.push('Expense List')
   wb.Sheets['Expense List'] = XLSX.utils.aoa_to_sheet([['ignored']])
   const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer
@@ -74,7 +74,9 @@ describe('Excel importer', () => {
     expect(classify('Rent')).toBe('fixed')
     expect(classify('Mom')).toBe('fixed')
     expect(classify('Car EMI')).toBe('fixed')
-    expect(classify('Electricity Bill')).toBe('fixed')
+    expect(classify('Electricity Bill')).toBe('expected')
+    expect(classify('Recharge Airtel/Jio')).toBe('expected')
+    expect(classify('Airtel Wifi')).toBe('fixed')
     expect(classify('Jupiter LIC Account')).toBe('investment')
     expect(classify('Mutual Fund 3')).toBe('investment')
     expect(classify('Digital Gold')).toBe('investment')
@@ -96,6 +98,17 @@ describe('Excel importer', () => {
     expect(labels).toContain('Weird New Thing')
     expect(labels).toContain('Cash')
     expect(plan.categories).toContain('Weird New Thing')
+  })
+
+  it('imports varying bills as spending and reports them as expected bills', () => {
+    const plan = buildImport(parsed.sheets, emptyData())
+    const sep = plan.cycles[0]
+    expect(sep.allocations.some((a) => /electricity/i.test(a.name))).toBe(false)
+    const tx = plan.transactions.find((t) => t.merchant === 'Electricity Bill')!
+    expect(tx.allocationId).toBeUndefined()
+    expect(plan.expected.map((e) => e.name)).toContain('Electricity Bill')
+    const rec = plan.reconciliation[0]
+    expect(rec.appBalancePaise).toBe(rec.sheetBalancePaise) // balances still match the sheet
   })
 
   it('does not count payments to fixed/investment allocations as spending', () => {

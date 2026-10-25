@@ -3,14 +3,16 @@ import { payOf, validatePay } from '../../engine/pay'
 import { useEffect, useState } from 'react'
 import { cycleLabel } from '../../engine/dates'
 import { formatMoney } from '../../engine/money'
-import type { Plan } from '../../engine/types'
+import type { Allocation, Plan } from '../../engine/types'
 import { useStore } from '../../state/store'
-import { AllocationEditor, MoneyInput } from '../components/AllocationEditor'
+import { AllocationEditor, ExpectedBillsEditor, MoneyInput } from '../components/AllocationEditor'
 import { PayFields } from '../components/PayFields'
-import { Alert, Field, useToast } from '../components/common'
+import { Alert, Field, Modal, useToast } from '../components/common'
 
 export function Budget() {
-  const { plan, savePlan, cycle, budget, updateCycle, today } = useStore()
+  const { plan, savePlan, cycle, budget, updateCycle, today, convertFixed } = useStore()
+  const [move, setMove] = useState<{ a: Allocation; to: 'spending' | 'expected' } | null>(null)
+  const [pastToo, setPastToo] = useState(true)
   const toast = useToast()
   const [draft, setDraft] = useState<Plan>(plan)
   const [catText, setCatText] = useState('')
@@ -55,7 +57,14 @@ export function Budget() {
 
       <section className="card stack">
         <div><h2>Set aside every cycle</h2><p className="hint">Rent, EMIs, subscriptions, SIPs, savings, emergency fund, goals. These come out of your income first and are never offered as daily spending.{payOf(draft).kind !== 'monthly' ? ' Give a monthly bill a due day and it is set aside only in the pay period that contains that day.' : ''}</p></div>
-        <AllocationEditor items={draft.allocations} onChange={(allocations) => setDraft({ ...draft, allocations })} showDue={payOf(draft).kind !== 'monthly'} />
+        <AllocationEditor items={draft.allocations} onChange={(allocations) => setDraft({ ...draft, allocations })} showDue={payOf(draft).kind !== 'monthly'}
+          onConvert={dirty ? undefined : (a, to) => setMove({ a, to })} />
+        {dirty && <p className="hint">Save your changes to see the “Amount varies” and “Make spending” options for each item.</p>}
+      </section>
+
+      <section className="card stack">
+        <div><h2>Expected bills (amount varies)</h2><p className="hint">Electricity, mobile recharge… bills that come every cycle but cost something different each time. The usual amount is <b>reserved</b> from your daily limit until you mark the bill paid and enter the real amount; the difference then goes into your spending.</p></div>
+        <ExpectedBillsEditor items={draft.expectedBills ?? []} onChange={(expectedBills) => setDraft({ ...draft, expectedBills })} />
       </section>
 
       <section className="card">
@@ -81,6 +90,23 @@ export function Budget() {
         </form>
         <p className="hint">Removing a category here never changes existing transactions.</p>
       </section>
+
+      {move && (
+        <Modal title={move.to === 'expected' ? `“${move.a.name}” varies every month` : `Treat “${move.a.name}” as spending`} onClose={() => setMove(null)}>
+          <div className="stack">
+            <p className="ink2">
+              {move.to === 'expected'
+                ? `It will no longer be set aside as a fixed amount. Each cycle ${formatMoney(move.a.amountPaise)} is reserved as an estimate, and when you pay the bill you enter the real amount.`
+                : 'It will no longer be set aside. Payments simply count as spending when you record them.'}
+            </p>
+            <label className="row"><input type="checkbox" checked={pastToo} onChange={(e) => setPastToo(e.target.checked)} /> Also change past cycles (their balances stay exactly the same; the bill just counts as spending there)</label>
+            <div className="row" style={{ justifyContent: 'flex-end' }}>
+              <button className="btn" onClick={() => setMove(null)}>Cancel</button>
+              <button className="btn primary" onClick={async () => { const m = move; setMove(null); const n = await convertFixed(m.a.name, m.to, pastToo); toast(`Updated ${n} cycle${n === 1 ? '' : 's'}`) }}>Apply</button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       <div className="row" style={{ position: 'sticky', bottom: 80, justifyContent: 'flex-end' }}>
         <button className="btn" disabled={!dirty} onClick={() => setDraft(plan)}>Discard</button>

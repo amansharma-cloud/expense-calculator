@@ -73,6 +73,19 @@ export interface Cycle {
   sheetBalancePaise?: Paise
 }
 
+/**
+ * A bill that arrives every cycle with an amount that varies (electricity, mobile recharge…).
+ * Each cycle it is reserved from the daily limit as an estimate until you pay it and enter the real amount.
+ */
+export interface ExpectedBill {
+  id: string
+  name: string
+  estimatePaise: Paise
+  /** Day of the month it is usually due; missing = sometime in the cycle (treated as due on the last day). */
+  dueDay?: number
+  category: string
+}
+
 /** How often pay arrives. A cycle runs from one payday to the day before the next. */
 export type PayCycle =
   | { kind: 'monthly'; day: number }
@@ -89,6 +102,7 @@ export interface Plan {
   takeHomePaise: Paise
   releasedCarryPaise: Paise
   allocations: Allocation[]
+  expectedBills?: ExpectedBill[]
   categories: string[]
   theme: 'system' | 'light' | 'dark'
 }

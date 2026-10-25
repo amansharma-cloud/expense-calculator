@@ -5,7 +5,7 @@ import { useStore } from '../../state/store'
 import { Alert, Confirm, useToast } from './common'
 
 const GROUPS: [RowGroup, string][] = [
-  ['fixed', 'Fixed bill / EMI'], ['investment', 'Investment'], ['reserved', 'Reserved / savings'], ['variable', 'Spending'], ['skip', 'Skip'],
+  ['fixed', 'Fixed bill / EMI'], ['investment', 'Investment'], ['reserved', 'Reserved / savings'], ['variable', 'Spending'], ['expected', 'Expected bill (amount varies)'], ['skip', 'Skip'],
 ]
 
 /** Excel → app migration. Parses in the browser, shows a preview with every problem, writes only after confirmation. */
@@ -121,7 +121,7 @@ export function ImportWizard({ onDone }: { onDone?: () => void }) {
 
               <details>
                 <summary>3. How each item is treated ({allLabels.length} labels)</summary>
-                <p className="hint">Fixed bills, investments and savings are set aside from income. Everything else is spending. Change a label here if the guess is wrong.</p>
+                <p className="hint">Fixed bills (rent, EMIs), investments and savings are set aside from income. Bills whose amount varies (electricity, recharge) become “expected bills”: spending in your history, and an estimate that is reserved each cycle until you pay. Everything else is spending. Change a label here if the guess is wrong.</p>
                 <div className="scroll-x">
                   <table className="t">
                     <thead><tr><th>Item in your sheet</th><th>Months</th><th>Treat as</th></tr></thead>

@@ -1,4 +1,5 @@
 import { handleApi } from './api'
+import { canonicalRedirect } from './host'
 import { AuthError, getJwks, kidOf, verifyAccessJwt } from './auth'
 import { D1Store, type D1Like } from './store'
 
@@ -9,6 +10,8 @@ interface Env {
   ACCESS_TEAM_DOMAIN?: string
   /** AUD tag of the Access application that protects this site */
   ACCESS_AUD?: string
+  /** When set (e.g. "money.example.com"), page loads on *.workers.dev are redirected here. Leave unset until everyone has moved. */
+  CANONICAL_HOST?: string
   /** Local development only (set in .dev.vars, never deployed): skip Access and act as this email. */
   ALLOW_DEV_AUTH?: string
   DEV_AUTH_EMAIL?: string
@@ -37,6 +40,9 @@ let store: D1Store | null = null
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url)
+
+    const moved = canonicalRedirect(url, env.CANONICAL_HOST)
+    if (moved) return Response.redirect(moved, 301)
 
     if (url.pathname === '/login') {
       const who = await authenticate(req, env)

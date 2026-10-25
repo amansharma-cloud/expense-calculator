@@ -45,4 +45,7 @@ export function nextCycleBounds(today: ISODate, pay: PayCycle, cycles: Pick<Cycl
   return prevEnd && prevEnd > b.start ? { start: prevEnd, end: b.end } : b
 }
 
+/** Monthly pay has exactly one cycle per month, so month-based items always belong to it. */
+export const billsAreIn = (pay: PayCycle): boolean => pay.kind === 'monthly'
+
 export { cycleBoundsFor }

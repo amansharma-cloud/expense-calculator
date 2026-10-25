@@ -12,7 +12,8 @@ import type { ProfileData } from '../db/storage'
  * unknown labels become spending categories, and every mismatch is reported.
  */
 
-export type RowGroup = AllocationKind | 'variable' | 'skip'
+/** `expected` = a bill that comes every month with a varying amount (electricity, recharge): spending in history, an estimate going forward. */
+export type RowGroup = AllocationKind | 'variable' | 'expected' | 'skip'
 
 export interface ParsedRow {
   label: string
@@ -58,7 +59,8 @@ export function classify(label: string): RowGroup {
   if (/^savings( \d+)?$/.test(n)) return 'reserved'
   if (/credit card|\bcc\b/.test(n)) return 'variable' // a card bill is spending in the old sheet, not an investment
   if (/jupiter|mutual fund|digital gold|\brd\b|\bsip\b|\blic\b|\bppf\b|\bnps\b/.test(n)) return 'investment'
-  if (/^rent\b|^mom\b|\bemi\b|electricity|wifi|recharge|maid/.test(n)) return 'fixed'
+  if (/electricity|\brecharge\b|\be bill\b/.test(n)) return 'expected'
+  if (/^rent\b|^mom\b|\bemi\b|wifi|maid/.test(n)) return 'fixed'
   return 'variable'
 }
 
@@ -123,7 +125,7 @@ export function parseWorkbook(buf: ArrayBuffer, salaryDay: number, overrides: Ov
         if (seen.has(key)) row.issue = 'This label appears more than once in the sheet.'
         if (row.amountPaise < 0) {
           row.issue = 'Negative amount.'
-          if (row.group !== 'variable') row.group = 'skip'
+          if (row.group !== 'variable' && row.group !== 'expected') row.group = 'skip'
         }
         if (row.amountPaise === 0) row.group = 'skip'
       }
@@ -206,13 +208,15 @@ export interface ImportPlan {
   /** Balance the app will compute for each imported cycle vs. what the sheet said. */
   reconciliation: { sheetName: string; appBalancePaise: Paise; sheetBalancePaise: Paise | null }[]
   categories: string[]
+  /** Expected-bill rows found in the imported sheets (the app uses the latest cycle's as the starting estimates). */
+  expected: { name: string; amountPaise: Paise; cycleStart: string }[]
 }
 
 const stableId = (hash: string) => 'imp-' + hash.replace(/[^a-z0-9]+/gi, '-').toLowerCase()
 
 /** Turn parsed sheets into cycles + transactions, skipping anything already present. */
 export function buildImport(sheets: ParsedSheet[], existing: ProfileData, now = new Date()): ImportPlan {
-  const out: ImportPlan = { cycles: [], transactions: [], skippedCycles: [], duplicateTransactions: 0, reconciliation: [], categories: [] }
+  const out: ImportPlan = { cycles: [], transactions: [], skippedCycles: [], duplicateTransactions: 0, reconciliation: [], categories: [], expected: [] }
   const haveStart = new Set(existing.cycles.map((c) => c.start))
   const haveHash = new Set(existing.transactions.map((t) => t.importHash).filter(Boolean))
   const cats = new Set<string>()
@@ -255,6 +259,7 @@ export function buildImport(sheets: ParsedSheet[], existing: ProfileData, now = 
         createdAt: now.toISOString(),
       })
       if (!isAlloc) cats.add(r.category)
+      if (r.group === 'expected') out.expected.push({ name: r.label, amountPaise: r.amountPaise, cycleStart: s.cycleStart })
     }
 
     const cycle: Cycle = {

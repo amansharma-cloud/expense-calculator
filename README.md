@@ -39,6 +39,14 @@ use a PIN. Use a PIN either way; never host untrusted scripts on the same origin
 
 Never commit real financial files; `.gitignore` already excludes `*.xlsx`, `*.csv` and `backup-*.json`. GitHub Actions (`ci.yml`) runs the tests and build on each push.
 
+## Your own domain
+
+See [docs/CUSTOM-DOMAIN.md](docs/CUSTOM-DOMAIN.md): add the domain to Cloudflare, attach a subdomain to the Worker, extend the Access login to it, then move each person's data (browser storage is per address).
+
+## Variable bills (electricity, recharge)
+
+Amounts that change every month are **expected bills**, not fixed set-asides. The usual amount is reserved from your daily limit each cycle until you tap **Paid** and enter the real amount; the difference lands in your spending. Rent, EMIs and similar fixed amounts stay as set-asides. In Budget, any fixed item can be moved with **Amount varies** or **Make spending** (past cycles keep identical balances).
+
 ## Currency, pay frequency and backups
 
 * **Currency:** each profile picks its own (INR, CAD, USD, GBP, EUR, AUD, NZD, SGD, AED). It controls symbols, digit grouping (₹12,34,567 vs $1,234,567.50) and what you can type in quick entry ("Tim Hortons $4.50"). Changing it relabels amounts; it never converts them.
