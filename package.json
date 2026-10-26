@@ -12,6 +12,7 @@
     "dev:cloud": "npm run build && wrangler dev -c wrangler.dev.jsonc --port 8787"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
     "dexie": "^4.4.7",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

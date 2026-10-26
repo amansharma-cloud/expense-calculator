@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { formatMoney } from '../engine/money'
 import { useStore } from '../state/store'
 import { Icon, Modal, useToast } from './components/common'
+import { effectiveMotion } from './motion'
 import { AutoBackupRunner } from './components/DataHealth'
 import { ExpenseForm } from './components/ExpenseForm'
 import { Budget } from './pages/Budget'
@@ -43,6 +44,11 @@ export function App() {
     if (plan.theme === 'system') document.documentElement.removeAttribute('data-theme')
     else document.documentElement.setAttribute('data-theme', plan.theme)
   }, [plan.theme])
+
+  useEffect(() => {
+    const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+    document.documentElement.dataset.motion = effectiveMotion(plan.motion, reduced)
+  }, [plan.motion])
 
   if (!ready) return <div className="gate"><p className="muted">Loading…</p></div>
   if (!active) return <ProfilePicker />

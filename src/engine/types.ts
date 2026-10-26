@@ -125,6 +125,8 @@ export interface Plan {
   moved?: MovedItem[]
   categories: string[]
   theme: 'system' | 'light' | 'dark'
+  /** Animation level. Missing = standard. Reduced-motion devices always get none. */
+  motion?: 'standard' | 'rich' | 'off'
 }
 
 export type Status = 'on-track' | 'watch' | 'over' | 'exhausted' | 'not-started' | 'ended'

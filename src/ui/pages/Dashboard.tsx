@@ -1,7 +1,7 @@
 import { getCurrency } from '../../engine/currency'
 import { useState } from 'react'
 import { cycleTransactions, dailySeries, spendByCategory } from '../../engine/budget'
-import { cycleLabel, isValidDate, shortDate } from '../../engine/dates'
+import { isValidDate, shortDate } from '../../engine/dates'
 import { formatMoney, parseAmount, validateAmount } from '../../engine/money'
 import type { Allocation, PayMethod, PlannedItem } from '../../engine/types'
 import { useStore } from '../../state/store'
@@ -12,22 +12,13 @@ const rs = (paise: number) => formatMoney(Math.floor(paise / 100) * 100)
 import { MoneyInput } from '../components/AllocationEditor'
 import { BackupReminder } from '../components/DataHealth'
 import { BalanceCard } from '../components/BalanceCard'
-import { Alert, Confirm, Field, Icon, Modal, Seg, StatusChip, useToast } from '../components/common'
+import { Hero } from '../components/Hero'
+import { greeting } from '../motion'
+import { Alert, Confirm, Field, Icon, Modal, Seg, useToast } from '../components/common'
 import { CategoryBars, DailySpendChart, Legend, RemainingChart } from '../components/charts'
 
-function Ring({ spent, limit, over }: { spent: number; limit: number; over: boolean }) {
-  const r = 62, c = 2 * Math.PI * r
-  const pct = limit > 0 ? Math.min(1, Math.max(0, spent) / limit) : spent > 0 ? 1 : 0
-  return (
-    <svg viewBox="0 0 148 148" aria-hidden="true">
-      <circle cx="74" cy="74" r={r} fill="none" stroke="var(--surface-2)" strokeWidth="14" />
-      <circle cx="74" cy="74" r={r} fill="none" stroke={over ? 'var(--bad)' : pct > 0.8 ? 'var(--warn)' : 'var(--accent)'} strokeWidth="14" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} />
-    </svg>
-  )
-}
-
 export function Dashboard({ onAdd }: { onAdd: () => void }) {
-  const { cycle, budget, data, today, payPlanned, deletePlanned, addPlanned, addTx } = useStore()
+  const { cycle, budget, data, today, payPlanned, deletePlanned, addPlanned, addTx, active } = useStore()
   const toast = useToast()
   const [planning, setPlanning] = useState(false)
   const [delPlan, setDelPlan] = useState<string | null>(null)
@@ -46,36 +37,17 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <div className="page-head reveal">
         <div>
-          <h1>Dashboard</h1>
-          <span className="muted small">{cycle.label ?? 'Pay cycle'} · {cycleLabel(cycle.start, cycle.end)} · day {b.dayNumber} of {b.cycleDays}</span>
+          <h1>{greeting()}, {active?.name ?? ''}</h1>
+          <span className="muted small">Here is where your money stands today.</span>
         </div>
-        <StatusChip status={b.status} />
       </div>
 
       <BackupReminder />
       {b.warnings.map((w, i) => <Alert key={i} kind={b.status === 'over' || b.status === 'exhausted' ? 'bad' : 'warn'}>{w}</Alert>)}
 
-      <section className="card hero" aria-label="Today">
-        <div className="hero-main">
-          <div className="ring">
-            <Ring spent={b.todaySpentPaise} limit={b.todayLimitPaise} over={over} />
-            <div className="center"><b className="num">{b.todayLimitPaise > 0 ? Math.round((Math.max(0, b.todaySpentPaise) / b.todayLimitPaise) * 100) : 0}%</b><span className="small muted">of today</span></div>
-          </div>
-          <div className="hero-text">
-            <div className="kicker">{over ? 'You are over today’s limit by' : 'You can still spend today'}</div>
-            <div className="big num">{rs(Math.abs(b.todayRemainingPaise))}</div>
-            <div className="kicker" style={{ marginTop: 6 }}>Today’s limit {rs(b.todayLimitPaise)} · spent {rs(Math.max(0, b.todaySpentPaise))}</div>
-            <button className="btn primary" style={{ marginTop: 12 }} onClick={onAdd}><Icon name="plus" size={18} /> Add expense</button>
-          </div>
-        </div>
-        <div className="hero-meta">
-          <div><div className="label">Left this cycle</div><div className="v num">{formatMoney(b.remainingPaise)}</div></div>
-          <div><div className="label">Days to next pay</div><div className="v num">{b.daysLeft}</div></div>
-          <div><div className="label">Next payday</div><div className="v num">{shortDate(cycle.end)}</div></div>
-        </div>
-      </section>
+      <Hero b={b} cycle={cycle} over={over} onAdd={onAdd} />
 
       <BalanceCard />
 

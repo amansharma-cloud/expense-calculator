@@ -95,6 +95,25 @@ export function balanceSummary(cycle: Cycle, allTxs: Transaction[], planned: Pla
   }
 }
 
+/** In-account balance at the end of each day of the cycle so far (for the balance sparkline). */
+export function balanceSeries(cycle: Cycle, allTxs: Transaction[], today: ISODate): { date: ISODate; paise: Paise }[] {
+  const txs = cycleTransactions(cycle, allTxs)
+  const last = today >= cycle.end ? addDays(cycle.end, -1) : today
+  const base = cycle.openingCarryPaise + cycle.takeHomePaise + cycle.extraCreditsPaise
+  const out: { date: ISODate; paise: Paise }[] = []
+  let running = base
+  for (let d = cycle.start; d <= last; d = addDays(d, 1)) {
+    for (const t of txs) {
+      if (t.date !== d) continue
+      if (t.type === 'income') running += t.amountPaise
+      else if (t.type === 'expense') running -= t.amountPaise
+      else if (t.type === 'refund') running += t.amountPaise
+    }
+    out.push({ date: d, paise: running })
+  }
+  return out
+}
+
 export function computeBudget(
   cycle: Cycle,
   allTxs: Transaction[],

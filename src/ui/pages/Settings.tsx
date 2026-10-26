@@ -61,7 +61,10 @@ export function Settings() {
 
       <section className="card stack">
         <h2>Appearance</h2>
-        <Seg label="Theme" value={plan.theme} onChange={(theme) => { void savePlan({ ...plan, theme }) }} options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']]} />
+        <Field label="Theme"><Seg label="Theme" value={plan.theme} onChange={(theme) => { void savePlan({ ...plan, theme }) }} options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']]} /></Field>
+        <Field label="Animations" hint="Standard: numbers count up, bars and rings grow, cards slide in. Rich adds a drifting glow background and drawn charts (uses more battery). Devices set to ‘reduce motion’ always get none.">
+          <Seg<'standard' | 'rich' | 'off'> label="Animations" value={plan.motion ?? 'standard'} onChange={(motion) => { void savePlan({ ...plan, motion }) }} options={[['standard', 'Standard'], ['rich', 'Rich'], ['off', 'Off']]} />
+        </Field>
       </section>
 
       <DataHealth />

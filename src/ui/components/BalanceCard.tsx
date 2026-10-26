@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { balanceSummary } from '../../engine/budget'
+import { balanceSeries, balanceSummary } from '../../engine/budget'
 import { getCurrency } from '../../engine/currency'
 import { formatMoney } from '../../engine/money'
 import { useStore } from '../../state/store'
+import { useCountUp } from '../useCountUp'
 import { MoneyInput } from './AllocationEditor'
+import { Sparkline } from './Sparkline'
 import { Alert, useToast } from './common'
 
 /**
@@ -17,6 +19,11 @@ export function BalanceCard() {
   const [checked, setChecked] = useState(false)
   if (!cycle) return null
   const b = balanceSummary(cycle, data.transactions, data.planned)
+  const series = balanceSeries(cycle, data.transactions, today).map((p) => p.paise)
+  const startBal = series[0] ?? b.inAccountNowPaise
+  const change = b.inAccountNowPaise - startBal
+  const nowShown = useCountUp(b.inAccountNowPaise, 1100)
+  const afterShown = useCountUp(b.afterPlanPaise, 1100)
   const diff = bank - b.inAccountNowPaise
   const neg = (n: number) => (n < 0 ? { color: 'var(--bad)' } : undefined)
 
@@ -41,24 +48,22 @@ export function BalanceCard() {
   ]
 
   return (
-    <section className="card" aria-label="Account balance">
+    <section className="card balance glass reveal" style={{ '--i': 1 } as React.CSSProperties} aria-label="Account balance">
       <div className="row between" style={{ alignItems: 'flex-start' }}>
         <div>
-          <h2>Account balance</h2>
-          <p className="hint">Carry-over plus this cycle’s money, minus everything spent or still to pay: the number your sheet used to show.</p>
+          <div className="eyebrow muted">Account balance</div>
+          <div className="balance-amount num" style={neg(b.inAccountNowPaise)}>{formatMoney(Math.round(nowShown))}</div>
+          <div className="small muted">in your account now</div>
         </div>
+        <span className={`chip ${change < 0 ? 'warn' : 'good'}`} title="Change since the cycle started">{change < 0 ? '▼' : '▲'} {formatMoney(Math.abs(change))} this cycle</span>
       </div>
-      <div className="grid cols-2" style={{ margin: '8px 0 4px' }}>
-        <div className="stat" style={{ padding: 0 }}>
-          <div className="label">In your account now</div>
-          <div className="value num" style={{ fontSize: '1.7rem', ...neg(b.inAccountNowPaise) }}>{formatMoney(b.inAccountNowPaise)}</div>
-          <div className="sub">carry-over + money in − what has already left</div>
+      <Sparkline values={series} label="Account balance over this cycle" />
+      <div className="balance-after">
+        <div>
+          <div className="small muted">After everything planned</div>
+          <div className="num" style={{ fontSize: '1.25rem', fontWeight: 700, ...neg(b.afterPlanPaise) }}>{formatMoney(Math.round(afterShown))}</div>
         </div>
-        <div className="stat" style={{ padding: 0 }}>
-          <div className="label">After everything planned</div>
-          <div className="value num" style={{ fontSize: '1.7rem', ...neg(b.afterPlanPaise) }}>{formatMoney(b.afterPlanPaise)}</div>
-          <div className="sub">what you will have once the remaining set-asides and bills are paid</div>
-        </div>
+        <div className="small muted" style={{ maxWidth: 260 }}>what you will have once the set-asides and bills still to pay are done: your old sheet’s Balance</div>
       </div>
 
       <details>
