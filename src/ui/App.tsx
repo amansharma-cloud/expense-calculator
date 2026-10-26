@@ -45,10 +45,13 @@ export function App() {
     else document.documentElement.setAttribute('data-theme', plan.theme)
   }, [plan.theme])
 
-  useEffect(() => {
+  // set during render so child effects (count-ups) already see the right level
+  if (typeof document !== 'undefined') {
     const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
     document.documentElement.dataset.motion = effectiveMotion(plan.motion, reduced)
-  }, [plan.motion])
+    if (plan.motion) document.documentElement.dataset.motionExplicit = '1'
+    else delete document.documentElement.dataset.motionExplicit
+  }
 
   if (!ready) return <div className="gate"><p className="muted">Loading…</p></div>
   if (!active) return <ProfilePicker />

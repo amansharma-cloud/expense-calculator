@@ -297,8 +297,10 @@ body::before {
     radial-gradient(38% 34% at 88% 14%, var(--aurora-2), transparent 70%),
     radial-gradient(44% 40% at 70% 92%, var(--aurora-3), transparent 70%);
 }
-html[data-motion='rich'] body::before { animation: aurora 38s ease-in-out infinite alternate; }
-@keyframes aurora { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(-3%, 2%, 0) scale(1.08); } }
+html[data-motion='rich'] body::before { animation: aurora 16s ease-in-out infinite alternate; }
+html[data-motion='rich'] body::after { content: ''; position: fixed; inset: -25%; z-index: -1; pointer-events: none; background: radial-gradient(34% 30% at 78% 70%, var(--aurora-2), transparent 70%), radial-gradient(30% 28% at 18% 78%, var(--aurora-3), transparent 70%); animation: aurora2 21s ease-in-out infinite alternate; }
+@keyframes aurora2 { from { transform: translate3d(4%, -3%, 0) scale(1.05); } to { transform: translate3d(-6%, 5%, 0) scale(.95); } }
+@keyframes aurora { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(-7%, 6%, 0) scale(1.18); } }
 
 /* surfaces */
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow), var(--highlight); transition: transform .35s var(--ease), box-shadow .35s var(--ease); }
@@ -386,6 +388,19 @@ main > .stack > *:nth-child(2) { animation-delay: .05s; } main > .stack > *:nth-
 main > .stack > *:nth-child(5) { animation-delay: .2s; } main > .stack > *:nth-child(6) { animation-delay: .25s; } main > .stack > *:nth-child(n+7) { animation-delay: .3s; }
 .bar > i { transition: width .9s var(--ease); }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .001ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  html:not([data-motion-explicit]) *, html:not([data-motion-explicit]) *::before, html:not([data-motion-explicit]) *::after { animation-duration: .001ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
 }
 html[data-motion='off'] *, html[data-motion='off'] *::before, html[data-motion='off'] *::after { animation-duration: .001ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+
+/* ---------- Rich-only extras (clearly different from Standard) ---------- */
+html[data-motion='rich'] .hero2::after { content: ''; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .22) 50%, transparent 65%); transform: translateX(-120%); animation: shimmer 5.5s ease-in-out 1.2s infinite; pointer-events: none; }
+@keyframes shimmer { 0%, 55% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+html[data-motion='rich'] .ring2 svg { animation: ringglow 2.8s ease-in-out infinite alternate; }
+@keyframes ringglow { from { filter: drop-shadow(0 4px 10px rgba(94, 234, 212, .15)); } to { filter: drop-shadow(0 4px 22px rgba(94, 234, 212, .75)); } }
+html[data-motion='rich'] .fab { animation: fabpulse 2.6s ease-out infinite; }
+@keyframes fabpulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 18px transparent; } }
+html[data-motion='rich'] .reveal, html[data-motion='rich'] main > .stack > * { animation-name: rise-spring; animation-duration: .9s; animation-timing-function: cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes rise-spring { from { opacity: 0; transform: translateY(34px) scale(.94); } to { opacity: 1; transform: none; } }
+html[data-motion='rich'] .spark circle { animation: ping 2.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes ping { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.7); } }
+html[data-motion='rich'] .stat.card, html[data-motion='rich'] .card { transition-duration: .5s; }

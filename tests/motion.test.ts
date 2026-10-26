@@ -32,11 +32,11 @@ describe('greeting and motion level', () => {
     expect([at(17), at(21)]).toEqual(['Good evening', 'Good evening'])
     expect([at(22), at(2)]).toEqual(['Hello', 'Hello'])
   })
-  it('reduced-motion devices always get none; otherwise the chosen level (standard by default)', () => {
-    expect(effectiveMotion('rich', true)).toBe('off')
-    expect(effectiveMotion('standard', true)).toBe('off')
-    expect(effectiveMotion('rich', false)).toBe('rich')
+  it('Auto follows the device; an explicit choice always wins (even on a reduce-motion device)', () => {
+    expect(effectiveMotion(undefined, true)).toBe('off')
     expect(effectiveMotion(undefined, false)).toBe('standard')
+    expect(effectiveMotion('standard', true)).toBe('standard')
+    expect(effectiveMotion('rich', true)).toBe('rich')
     expect(effectiveMotion('off', false)).toBe('off')
   })
 })

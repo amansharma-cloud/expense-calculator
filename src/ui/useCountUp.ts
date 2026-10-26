@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { countUpValue } from './motion'
 
-const motionOff = () =>
-  typeof document !== 'undefined' &&
-  (document.documentElement.dataset.motion === 'off' || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches))
+// App sets data-motion (already accounting for the device's reduce-motion setting and the person's choice)
+const motionOff = () => typeof document !== 'undefined' && document.documentElement.dataset.motion === 'off'
 
 /** Animates a number toward `target` (first time from 0). Shows the target immediately when motion is off. */
 export function useCountUp(target: number, duration = 900): number {

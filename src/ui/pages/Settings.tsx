@@ -62,9 +62,12 @@ export function Settings() {
       <section className="card stack">
         <h2>Appearance</h2>
         <Field label="Theme"><Seg label="Theme" value={plan.theme} onChange={(theme) => { void savePlan({ ...plan, theme }) }} options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']]} /></Field>
-        <Field label="Animations" hint="Standard: numbers count up, bars and rings grow, cards slide in. Rich adds a drifting glow background and drawn charts (uses more battery). Devices set to ‘reduce motion’ always get none.">
-          <Seg<'standard' | 'rich' | 'off'> label="Animations" value={plan.motion ?? 'standard'} onChange={(motion) => { void savePlan({ ...plan, motion }) }} options={[['standard', 'Standard'], ['rich', 'Rich'], ['off', 'Off']]} />
+        <Field label="Animations" hint="Auto follows your device. Standard: numbers count up, rings and bars grow, cards slide in. Rich adds a moving glow background, a shimmering hero card and pulsing highlights (uses more battery). Off: no motion.">
+          <Seg<'auto' | 'standard' | 'rich' | 'off'> label="Animations" value={plan.motion ?? 'auto'} onChange={(m) => { void savePlan({ ...plan, motion: m === 'auto' ? undefined : m }) }} options={[['auto', 'Auto'], ['standard', 'Standard'], ['rich', 'Rich'], ['off', 'Off']]} />
         </Field>
+        {typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches && !plan.motion && (
+          <Alert kind="info">Your device is set to <b>reduce motion</b> (iPhone: Accessibility → Motion; Android: “Remove animations”), so Auto keeps animations off. Choose <b>Standard</b> or <b>Rich</b> to turn them on for this app only.</Alert>
+        )}
       </section>
 
       <DataHealth />

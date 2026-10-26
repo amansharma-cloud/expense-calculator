@@ -20,8 +20,12 @@ export function greeting(now: Date = new Date()): string {
   return 'Hello'
 }
 
-/** Motion is off if the person chose Off or their device asks for reduced motion. */
+/**
+ * Animation level in effect.
+ * - setting missing = "Auto": follow the device (reduced-motion devices get none, others get Standard)
+ * - an explicit choice (Standard / Rich / Off) always wins, so someone whose device has "reduce motion" on can still opt in for this app
+ */
 export function effectiveMotion(setting: MotionMode | undefined, prefersReduced: boolean): MotionMode {
-  if (prefersReduced) return 'off'
-  return setting ?? 'standard'
+  if (setting) return setting
+  return prefersReduced ? 'off' : 'standard'
 }
