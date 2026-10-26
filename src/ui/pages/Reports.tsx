@@ -36,7 +36,7 @@ export function Reports() {
 
   return (
     <div className="stack">
-      <div className="page-head reveal">
+      <div data-tour="reports" className="page-head reveal">
         <div>
           <h1>Reports</h1>
           <span className="muted small">{c.label ?? 'Pay cycle'} · {cycleLabel(c.start, c.end)}</span>

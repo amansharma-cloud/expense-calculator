@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { formatMoney } from '../engine/money'
 import type { TxType } from '../engine/types'
 import { useStore } from '../state/store'
@@ -6,6 +6,7 @@ import { Icon, Modal, useToast } from './components/common'
 import { effectiveMotion } from './motion'
 import { AutoBackupRunner } from './components/DataHealth'
 import { ExpenseForm } from './components/ExpenseForm'
+import { Tour, TourButton } from './components/Tour'
 import { Dashboard } from './pages/Dashboard'
 import { NewCycle, ProfilePicker, Setup } from './pages/Gate'
 
@@ -31,11 +32,29 @@ const readRoute = (): Route => {
 
 export function App() {
   const store = useStore()
-  const { ready, active, data, cycle, plan, addTx, budget } = store
+  const { ready, active, data, cycle, plan, addTx, budget, savePlan } = store
   const toast = useToast()
   const [route, setRoute] = useState<Route>(readRoute())
   const [adding, setAdding] = useState(false)
   const [addType, setAddType] = useState<TxType | undefined>(undefined)
+  const [touring, setTouring] = useState(false)
+  const tourFrom = useRef<Route>('dashboard')
+  const go = useCallback((r: Route) => { window.location.hash = `#/${r}` }, [])
+  const startTour = () => { tourFrom.current = route; setTouring(true) }
+  const endTour = (finished: boolean) => {
+    setTouring(false)
+    go(finished ? 'dashboard' : tourFrom.current)
+    if (!plan.tourSeen) void savePlan({ ...plan, tourSeen: true })
+  }
+  const profileId = active?.id
+  const inApp = ready && !!active && !!cycle
+  // first time on this profile: start once the dashboard has settled (not while a dialog is open)
+  useEffect(() => {
+    if (!inApp || plan.tourSeen) return
+    const t = setTimeout(() => { tourFrom.current = 'dashboard'; setTouring(true) }, 1000)
+    return () => clearTimeout(t)
+  }, [inApp, profileId, plan.tourSeen])
+  useEffect(() => { setTouring(false) }, [profileId])
   const openAdd = (t?: TxType) => { setAddType(t); setAdding(true) }
 
   useEffect(() => {
@@ -82,7 +101,7 @@ export function App() {
 
   return (
     <div className="app">
-      <nav className="nav" aria-label="Main">
+      <nav data-tour="nav" className="nav" aria-label="Main">
         <div className="brand"><img src="./favicon.svg" alt="" />Daily Spend</div>
         {ROUTES.map(([id, label, icon]) => (
           <a key={id} href={`#/${id}`} aria-current={route === id ? 'page' : undefined}><Icon name={icon} />{label}</a>
@@ -104,7 +123,9 @@ export function App() {
         )}
         <Suspense fallback={<div className="stack"><div className="skeleton" style={{ height: 56, width: '50%' }} /><div className="skeleton" style={{ height: 180 }} /><div className="skeleton" style={{ height: 180 }} /></div>}>{page()}</Suspense>
       </main>
-      {route !== 'add' && <button className="fab" onClick={() => openAdd()} aria-label="Add expense"><Icon name="plus" /></button>}
+      {!touring && <TourButton onClick={startTour} />}
+      {touring && <Tour route={route} go={go} onClose={endTour} />}
+      {route !== 'add' && <button data-tour="fab" className="fab" onClick={() => openAdd()} aria-label="Add expense"><Icon name="plus" /></button>}
       {adding && (
         <Modal title={addType === 'income' ? 'Add money' : 'Add expense'} onClose={() => setAdding(false)}>
           <ExpenseForm defaultType={addType} onSaved={(d) => void saveNew(d)} onCancel={() => setAdding(false)} />

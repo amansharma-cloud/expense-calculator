@@ -56,7 +56,7 @@ export function Budget() {
         )}
       </section>
 
-      <section className="card stack">
+      <section data-tour="budget" className="card stack">
         <SectionHead icon="home" color="var(--s7)" title="Set aside every cycle" hint={<>Rent, EMIs, subscriptions, SIPs, savings, emergency fund, goals. These come out of your income first and are never offered as daily spending. To record a payment, use <b>Paid</b> on the dashboard (or just add the expense: it is recognised). Use <b>More…</b> on an item only if its amount changes every month.{payOf(draft).kind !== 'monthly' ? ' Give a monthly bill a due day and it is set aside only in the pay period that contains that day.' : ''}</>} />
         <AllocationEditor items={draft.allocations} onChange={(allocations) => setDraft({ ...draft, allocations })}
           onConvert={dirty ? undefined : (a, to) => setMove({ a, to })} />

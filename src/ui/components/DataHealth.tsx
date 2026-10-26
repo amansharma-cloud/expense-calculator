@@ -57,7 +57,7 @@ export function DataHealth() {
   const canShare = typeof navigator !== 'undefined' && !!navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.json', { type: 'application/json' })] })
 
   return (
-    <section className="card stack">
+    <section data-tour="data-health" className="card stack">
       <SectionHead icon="gauge" color="var(--s3)" title="Data health" hint="Where your data lives and how safe it is." />
       <table className="explain"><tbody>
         <tr><td>Storage protected from automatic cleanup</td><td>{st?.persisted === null ? 'Unknown' : st?.persisted ? 'Yes' : 'Not guaranteed'}</td></tr>

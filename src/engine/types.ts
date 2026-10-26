@@ -131,6 +131,8 @@ export interface Plan {
   theme: 'system' | 'light' | 'dark'
   /** Animation level. Missing = standard. Reduced-motion devices always get none. */
   motion?: 'standard' | 'rich' | 'off'
+  /** The app tour was finished or skipped on this profile. Missing = show it once. */
+  tourSeen?: boolean
 }
 
 export type Status = 'on-track' | 'watch' | 'over' | 'exhausted' | 'not-started' | 'ended'

@@ -40,7 +40,7 @@ export function QuickActions({ onAdd, onPay }: { onAdd: () => void; onPay: () =>
     { label: 'Backup', icon: 'download', color: 'var(--s3)', href: '#/settings' },
   ]
   return (
-    <nav className="quick reveal" style={{ '--i': 2 } as React.CSSProperties} aria-label="Quick actions">
+    <nav data-tour="quick" className="quick reveal" style={{ '--i': 2 } as React.CSSProperties} aria-label="Quick actions">
       {items.map((it) => {
         const inner = (<><span className="qa-ic" style={{ '--c': it.color } as React.CSSProperties}><Icon name={it.icon} size={22} /></span><span>{it.label}</span></>)
         return it.href

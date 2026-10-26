@@ -41,7 +41,7 @@ export function Hero({ b, cycle, over, onAdd }: { b: BudgetResult; cycle: Cycle;
   const amount = useCountUp(whole(Math.abs(b.todayRemainingPaise)), 1100)
   const limitPct = b.todayLimitPaise > 0 ? Math.max(0, b.todaySpentPaise) / b.todayLimitPaise : b.todaySpentPaise > 0 ? 1 : 0
   return (
-    <section className="hero2 glass reveal" style={{ '--i': 0 } as React.CSSProperties} aria-label="Today">
+    <section data-tour="hero" className="hero2 glass reveal" style={{ '--i': 0 } as React.CSSProperties} aria-label="Today">
       <div className="hero2-glow" aria-hidden="true" />
       <div className="hero2-top">
         <div className="hero2-copy">

@@ -89,7 +89,7 @@ export function Transactions() {
         </div>
       </div>
 
-      <section className="card filters reveal" style={{ '--i': 1 } as React.CSSProperties} aria-label="Filters">
+      <section data-tour="history" className="card filters reveal" style={{ '--i': 1 } as React.CSSProperties} aria-label="Filters">
         <div className="search">
           <Icon name="list" size={18} />
           <input id="q" className="input" type="search" aria-label="Search transactions" placeholder="Search description, category, note or amount" value={q} onChange={(e) => { setQ(e.target.value); setLimit(100) }} />

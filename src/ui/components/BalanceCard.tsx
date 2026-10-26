@@ -48,7 +48,7 @@ export function BalanceCard() {
   ]
 
   return (
-    <section className="card balance glass reveal" style={{ '--i': 1 } as React.CSSProperties} aria-label="Account balance">
+    <section data-tour="balance" className="card balance glass reveal" style={{ '--i': 1 } as React.CSSProperties} aria-label="Account balance">
       <div className="row between" style={{ alignItems: 'flex-start' }}>
         <div>
           <div className="eyebrow muted">Account balance</div>

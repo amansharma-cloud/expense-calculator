@@ -102,7 +102,7 @@ export function Dashboard({ onAdd }: { onAdd: (type?: TxType) => void }) {
           <p className="hint">Regular spending this cycle, by category.</p>
           <SpendDonut rows={cats} />
         </section>
-        <section className="card" aria-label="Upcoming bills">
+        <section data-tour="bills" className="card" aria-label="Upcoming bills">
           <div className="row between">
             <div>
               <h2>Upcoming bills</h2>
