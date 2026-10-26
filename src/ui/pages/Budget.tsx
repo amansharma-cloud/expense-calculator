@@ -80,7 +80,12 @@ export function Budget() {
 
       <section className="card stack">
         <SectionHead icon="bolt" color="var(--s4)" title="Expected bills (amount varies)" hint={<>Electricity, mobile recharge… bills that come every cycle but cost something different each time. The usual amount is <b>reserved</b> from your daily limit until you mark the bill paid and enter the real amount; the difference then goes into your spending.</>} />
-        <ExpectedBillsEditor items={draft.expectedBills ?? []} onChange={(expectedBills) => setDraft({ ...draft, expectedBills })} />
+        <ExpectedBillsEditor all={draft.expectedBills ?? []} onChange={(expectedBills) => setDraft({ ...draft, expectedBills })} />
+      </section>
+
+      <section className="card stack">
+        <SectionHead icon="play" color="var(--s3)" title="Subscriptions" hint={<>Netflix, Prime, YouTube… charged every month, but the amount can change. The usual amount is <b>reserved</b> each cycle; when it is deducted from your account, tap <b>Paid</b> and enter what was actually charged. Leave the amount at 0 to just track without reserving.</>} />
+        <ExpectedBillsEditor subscriptions all={draft.expectedBills ?? []} onChange={(expectedBills) => setDraft({ ...draft, expectedBills })} />
       </section>
 
       <section className="card">

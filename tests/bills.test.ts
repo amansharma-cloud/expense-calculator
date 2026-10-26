@@ -172,3 +172,14 @@ describe('moving a set-aside back (undo)', () => {
     expect(back.plan.allocations.filter((a) => a.name === 'Rent')).toHaveLength(1)
   })
 })
+
+describe('subscriptions reuse the expected-bill reservation', () => {
+  it('reserves each subscription once per cycle and keeps the flag off the reserved item', () => {
+    const subs = [{ id: 's1', name: 'Netflix', estimatePaise: 64900, category: 'Netflix', subscription: true }]
+    const a = billsForCycle(subs, '2026-10-25', '2026-11-25', { kind: 'monthly', day: 25 })
+    const b = billsForCycle(subs, '2026-10-25', '2026-11-25', { kind: 'monthly', day: 25 })
+    expect(a).toHaveLength(1)
+    expect(a[0].id).toBe(b[0].id)
+    expect(a[0].amountPaise).toBe(64900)
+  })
+})

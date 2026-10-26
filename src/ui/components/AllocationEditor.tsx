@@ -1,6 +1,7 @@
 import { getCurrency } from '../../engine/currency'
 import { useEffect, useState } from 'react'
 import { parseAmount } from '../../engine/money'
+import { CatIcon } from './CatIcon'
 import type { Allocation, AllocationKind, ExpectedBill, Paise } from '../../engine/types'
 import { DayPicker } from './DayPicker'
 import { Icon } from './common'
@@ -81,19 +82,28 @@ export function AllocationEditor({ items, onChange, onConvert }: {
 }
 
 /** Bills that come every cycle with a changing amount. The estimate is reserved until you pay the real amount. */
-export function ExpectedBillsEditor({ items, onChange }: { items: ExpectedBill[]; onChange: (b: ExpectedBill[]) => void }) {
-  const update = (id: string, patch: Partial<ExpectedBill>) => onChange(items.map((b) => (b.id === id ? { ...b, ...patch } : b)))
+export const DEFAULT_SUBSCRIPTIONS = ['Netflix', 'Amazon Prime', 'Hotstar', 'Sony Liv', 'YouTube', 'KodeKloud']
+
+/** Expected bills; with `subscriptions` it edits the subscription entries instead (the two lists share one array). */
+export function ExpectedBillsEditor({ all, onChange, subscriptions = false }: { all: ExpectedBill[]; onChange: (b: ExpectedBill[]) => void; subscriptions?: boolean }) {
+  const mine = (b: ExpectedBill) => !!b.subscription === subscriptions
+  const items = all.filter(mine)
+  const change = (next: ExpectedBill[]) => onChange([...all.filter((b) => !mine(b)), ...next])
+  const blank = (name = ''): ExpectedBill => ({ id: crypto.randomUUID(), name, estimatePaise: 0, category: name, ...(subscriptions ? { subscription: true } : {}) })
+  const missing = subscriptions ? DEFAULT_SUBSCRIPTIONS.filter((n) => !items.some((b) => b.name.trim().toLowerCase() === n.toLowerCase())) : []
+  const update = (id: string, patch: Partial<ExpectedBill>) => change(items.map((b) => (b.id === id ? { ...b, ...patch } : b)))
   return (
     <div className="stack">
-      {items.length === 0 && <p className="muted">None yet. Add bills like electricity or mobile recharge: you enter the real amount when you pay.</p>}
+      {items.length === 0 && <p className="muted">{subscriptions ? 'None yet. Tap a service below to add it.' : 'None yet. Add bills like electricity or mobile recharge: you enter the real amount when you pay.'}</p>}
       {items.length > 0 && (
-        <div className="rows bills" role="list" aria-label="Expected bills">
-          <div className="rows-head" aria-hidden="true"><span>Bill</span><span>Usual amount ({getCurrency().symbol})</span><span>Due day</span><span /></div>
+        <div className="rows bills" role="list" aria-label={subscriptions ? 'Subscriptions' : 'Expected bills'}>
+          <div className="rows-head" aria-hidden="true"><span>{subscriptions ? 'Subscription' : 'Bill'}</span><span>Usual amount ({getCurrency().symbol})</span><span>Due day</span><span /></div>
           {items.map((b) => (
             <div key={b.id} className="row-card" role="listitem">
               <div className="field c-name">
-                <label className="lbl m-only" htmlFor={'bn' + b.id}>Bill</label>
-                <input id={'bn' + b.id} className="input" aria-label="Bill" value={b.name} onChange={(e) => update(b.id, { name: e.target.value, category: b.category === b.name || !b.category ? e.target.value : b.category })} />
+                <label className="lbl m-only" htmlFor={'bn' + b.id}>{subscriptions ? 'Subscription' : 'Bill'}</label>
+                {subscriptions && <CatIcon name={b.name} size={34} />}
+                <input id={'bn' + b.id} className="input" aria-label={subscriptions ? 'Subscription' : 'Bill'} value={b.name} onChange={(e) => update(b.id, { name: e.target.value, category: b.category === b.name || !b.category ? e.target.value : b.category })} />
               </div>
               <div className="field c-amt">
                 <label className="lbl m-only" htmlFor={'be' + b.id}>Usual amount ({getCurrency().symbol})</label>
@@ -104,14 +114,19 @@ export function ExpectedBillsEditor({ items, onChange }: { items: ExpectedBill[]
                 <DayPicker label={`Due day for ${b.name || 'bill'}`} value={b.dueDay} optional emptyText="Any day" onChange={(d) => update(b.id, { dueDay: d })} />
               </div>
               <div className="c-act">
-                <button type="button" className="btn ghost danger" aria-label={`Remove ${b.name}`} onClick={() => onChange(items.filter((x) => x.id !== b.id))}><Icon name="trash" size={18} /></button>
+                <button type="button" className="btn ghost danger" aria-label={`Remove ${b.name}`} onClick={() => change(items.filter((x) => x.id !== b.id))}><Icon name="trash" size={18} /></button>
               </div>
             </div>
           ))}
         </div>
       )}
+      {missing.length > 0 && (
+        <div className="chip-row" role="group" aria-label="Add a common subscription">
+          {missing.map((n) => <button key={n} type="button" className="chip-btn" onClick={() => change([...items, blank(n)])}><CatIcon name={n} size={22} /> {n}</button>)}
+        </div>
+      )}
       <div>
-        <button type="button" className="btn" onClick={() => onChange([...items, { id: crypto.randomUUID(), name: '', estimatePaise: 0, category: '' }])}><Icon name="plus" size={18} /> Add expected bill</button>
+        <button type="button" className="btn" onClick={() => change([...items, blank()])}><Icon name="plus" size={18} /> {subscriptions ? 'Add another subscription' : 'Add expected bill'}</button>
       </div>
     </div>
   )

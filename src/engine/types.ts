@@ -84,6 +84,8 @@ export interface ExpectedBill {
   /** Day of the month it is usually due; missing = sometime in the cycle (treated as due on the last day). */
   dueDay?: number
   category: string
+  /** A streaming/app subscription: same reserve-then-pay behaviour, shown in its own section. */
+  subscription?: boolean
 }
 
 /**

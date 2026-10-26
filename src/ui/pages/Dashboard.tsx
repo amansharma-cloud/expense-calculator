@@ -39,6 +39,13 @@ export function Dashboard({ onAdd }: { onAdd: (type?: TxType) => void }) {
   const cats = spendByCategory(txs)
   const over = b.todayRemainingPaise < 0
   const cmp = compareWithPrevious(cycle, data.cycles, data.transactions, today)
+  const subs = (data.plan?.expectedBills ?? []).filter((x) => x.subscription).map((bill) => {
+    const item = data.planned.find((p) => p.id === `exp-${bill.id}-${cycle.start}`)
+    const paidPaise = item?.done ? data.transactions.filter((t) => t.plannedId === item.id).reduce((n, t) => n + t.amountPaise, 0) : 0
+    return { bill, item, paidPaise }
+  })
+  const subsPaid = subs.reduce((n, r) => n + r.paidPaise, 0)
+  const subsLeft = subs.reduce((n, r) => n + (r.item && !r.item.done ? r.bill.estimatePaise : 0), 0)
   const upcoming = upcomingItems(cycle, data.planned, b.allocationPaid, today)
   // bills grouped by due date (soonest first), so a day with several payments is one row
   const billGroups = Object.values(upcoming.reduce<Record<string, { date: string; daysUntil: number; items: typeof upcoming; total: number }>>((acc, u) => {
@@ -188,6 +195,29 @@ export function Dashboard({ onAdd }: { onAdd: (type?: TxType) => void }) {
           })}
         </div>
       </section>
+
+      {subs.length > 0 && (
+        <section className="card" aria-label="Subscriptions">
+          <div className="row between">
+            <div>
+              <h2>Subscriptions</h2>
+              <p className="hint" style={{ margin: 0 }}>{subsPaid > 0 ? `${formatMoney(subsPaid)} paid this cycle` : 'Nothing deducted yet this cycle'}{subsLeft > 0 ? ` · ${formatMoney(subsLeft)} still expected` : ''}</p>
+            </div>
+            <a href="#/budget" className="small">Manage</a>
+          </div>
+          <ul className="sub-list">
+            {subs.map((r) => (
+              <li key={r.bill.id}>
+                <CatIcon name={r.bill.name} size={34} />
+                <span className="grow nm">{r.bill.name}</span>
+                {r.item?.done
+                  ? <><b className="num">{formatMoney(r.paidPaise)}</b><span className="chip good small"><Icon name="check" size={14} /> Paid</span></>
+                  : <>{r.bill.estimatePaise > 0 && <span className="num muted">~{formatMoney(r.bill.estimatePaise)}</span>}{r.item && <button className="btn sm" aria-label={`Mark ${r.bill.name} paid`} onClick={() => setPaying(r.item!)}>Paid</button>}</>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="grid cols-2">
         <section className="card" aria-label="Recent">

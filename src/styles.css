@@ -562,3 +562,14 @@ html[data-motion="off"] .skeleton { animation: none; }
 /* brand artwork inside category tiles: neutral light tile so logos keep their own colours in dark mode */
 .cat-icon:has(> img) { background: #fff; box-shadow: 0 1px 0 rgba(255,255,255,.4) inset, 0 2px 8px rgba(0,0,0,.12); overflow: hidden; }
 .cat-icon > img { object-fit: contain; display: block; }
+
+/* subscriptions */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 14px 4px 6px; border-radius: 999px; border: 1px dashed var(--line); background: var(--surface); color: var(--ink); font-weight: 600; font-size: .9rem; cursor: pointer; transition: transform .2s var(--ease), border-color .2s; }
+.chip-btn:hover { transform: translateY(-1px); border-color: var(--accent); }
+.rows.bills .c-name:has(> .cat-icon) { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center; }
+.rows.bills .c-name:has(> .cat-icon) > .lbl { grid-column: 1 / -1; }
+.sub-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.sub-list li { display: flex; align-items: center; gap: 10px; padding: 6px 0; min-width: 0; }
+.sub-list .nm { font-weight: 600; }
+.sub-list .grow { flex: 1; min-width: 0; }

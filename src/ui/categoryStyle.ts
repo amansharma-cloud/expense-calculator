@@ -16,6 +16,12 @@ export interface CategoryStyle {
 
 const RULES: { concept: string; icon: CatIcon; color: string; re: RegExp; image?: string }[] = [
   // brand artwork first, so "Car EMI" is a car and "HDFC RD" is HDFC rather than the generic EMI / savings icons
+  { concept: 'netflix', icon: 'play', color: 'var(--s3)', image: 'netflix.svg', re: /netflix/ },
+  { concept: 'prime', icon: 'play', color: 'var(--s3)', image: 'prime.svg', re: /prime|amazon video/ },
+  { concept: 'hotstar', icon: 'play', color: 'var(--s3)', image: 'hotstar.svg', re: /hotstar|disney/ },
+  { concept: 'sonyliv', icon: 'play', color: 'var(--s3)', image: 'sonyliv.svg', re: /sony ?liv/ },
+  { concept: 'youtube', icon: 'play', color: 'var(--s3)', image: 'youtube.svg', re: /youtube/ },
+  { concept: 'kodekloud', icon: 'play', color: 'var(--s3)', image: 'kodekloud.svg', re: /kode ?kloud/ },
   { concept: 'jupiter', icon: 'trend', color: 'var(--s6)', image: 'jupiter.png', re: /jupiter/ },
   { concept: 'hdfc', icon: 'card', color: 'var(--s7)', image: 'hdfc.png', re: /hdfc/ },
   { concept: 'car-emi', icon: 'car', color: 'var(--s1)', image: 'car.png', re: /car emi|car loan|vehicle (emi|loan)/ },
@@ -32,7 +38,7 @@ const RULES: { concept: string; icon: CatIcon; color: string; re: RegExp; image?
   { concept: 'health', icon: 'heart', color: 'var(--s8)', re: /health|medic|doctor|pharmacy|hospital|clinic|dental|gym|fitness/ },
   { concept: 'family', icon: 'users', color: 'var(--s5)', re: /\bmom\b|\bpapa\b|family|parents|mummy|ghar|aaru|mishu|ashu|kids|wife|husband/ },
   { concept: 'gift', icon: 'gift', color: 'var(--s5)', re: /gift|prasad|sweets|flowers|temple|donation|birthday|festival|diwali/ },
-  { concept: 'subscription', icon: 'play', color: 'var(--s3)', re: /subscri|netflix|prime|spotify|hotstar|youtube|icloud/ },
+  { concept: 'subscription', icon: 'play', color: 'var(--s3)', re: /subscri|spotify|icloud/ },
   { concept: 'personal', icon: 'scissors', color: 'var(--s8)', re: /personal|haircut|hair cut|salon|spa\b|barber/ },
   { concept: 'cash', icon: 'cash', color: 'var(--s4)', re: /\bcash\b|atm|withdraw/ },
 ]

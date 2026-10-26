@@ -89,6 +89,8 @@ describe('category icons and colours', () => {
     expect(c('Mutual Fund 2')).toBe('mutual-fund')
     expect(c('HDFC RD')).toBe('hdfc')
     expect(c('Car EMI')).toBe('car-emi')
+    expect(['Netflix', 'Amazon Prime', 'Hotstar', 'Sony Liv', 'YouTube Premium', 'KodeKloud'].map(c)).toEqual(['netflix', 'prime', 'hotstar', 'sonyliv', 'youtube', 'kodekloud'])
+    expect(c('Spotify')).toBe('subscription')
     expect(c('Jupiter Gold')).toBe('jupiter')
     expect(c('Digital Gold')).toBe('gold')
     expect(c('HDFC Credit Card')).toBe('hdfc')
