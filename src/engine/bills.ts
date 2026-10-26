@@ -2,6 +2,15 @@ import { addDays, daysInMonth } from './dates'
 import { billsAreIn } from './pay'
 import type { Cycle, ExpectedBill, ISODate, MovedItem, PayCycle, Plan, PlannedItem, Transaction } from './types'
 
+/** The date in [start, end) that falls on `day` of the month (29-31 clamp to the month's last day), or null. */
+export function dateForDay(day: number, start: ISODate, end: ISODate): ISODate | null {
+  for (let d = start; d < end; d = addDays(d, 1)) {
+    const [y, m, dd] = d.split('-').map(Number)
+    if (dd === Math.min(day, daysInMonth(y, m))) return d
+  }
+  return null
+}
+
 /** The planned (reserved) items that the expected bills create for one cycle. Ids are stable, so this never duplicates. */
 export function billsForCycle(bills: ExpectedBill[] | undefined, start: ISODate, end: ISODate, pay: PayCycle): PlannedItem[] {
   const out: PlannedItem[] = []

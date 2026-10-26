@@ -16,7 +16,7 @@ const METHODS: [PayMethod, string][] = [['upi', 'UPI'], ['card', 'Card'], ['cash
  * One form for add + edit. The quick line ("Spent 350 on groceries today") fills the fields below it;
  * every suggestion stays editable before saving.
  */
-export function ExpenseForm({ initial, onSaved, onCancel }: { initial?: Transaction; onSaved: (t: Draft, isNew: boolean) => void; onCancel?: () => void }) {
+export function ExpenseForm({ initial, defaultType, onSaved, onCancel }: { initial?: Transaction; defaultType?: TxType; onSaved: (t: Draft, isNew: boolean) => void; onCancel?: () => void }) {
   const { today, categories, data, cycle } = useStore()
   const [quick, setQuick] = useState('')
   const [amount, setAmount] = useState(initial ? String(initial.amountPaise / 100) : '')
@@ -26,7 +26,7 @@ export function ExpenseForm({ initial, onSaved, onCancel }: { initial?: Transact
   const [date, setDate] = useState(initial?.date ?? today)
   const [time, setTime] = useState(initial?.time ?? nowHM())
   const [method, setMethod] = useState<PayMethod>(initial?.method ?? 'upi')
-  const [type, setType] = useState<TxType>(initial?.type ?? 'expense')
+  const [type, setType] = useState<TxType>(initial?.type ?? defaultType ?? 'expense')
   const [note, setNote] = useState(initial?.note ?? '')
   const [allocationId, setAllocationId] = useState(initial?.allocationId ?? '')
   const [allocTouched, setAllocTouched] = useState(!!initial)

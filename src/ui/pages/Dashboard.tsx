@@ -1,25 +1,32 @@
 import { getCurrency } from '../../engine/currency'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { cycleTransactions, dailySeries, spendByCategory } from '../../engine/budget'
 import { isValidDate, shortDate } from '../../engine/dates'
+import { compareWithPrevious, smartTips, upcomingItems } from '../../engine/insights'
 import { formatMoney, parseAmount, validateAmount } from '../../engine/money'
-import type { Allocation, PayMethod, PlannedItem } from '../../engine/types'
+import type { Allocation, PayMethod, PlannedItem, TxType } from '../../engine/types'
 import { useStore } from '../../state/store'
 import { ordinal } from '../components/DayPicker'
-
-/** Limits are shown in whole rupees, rounded down, so the app never nudges you to overspend. */
-const rs = (paise: number) => formatMoney(Math.floor(paise / 100) * 100)
 import { MoneyInput } from '../components/AllocationEditor'
 import { BackupReminder } from '../components/DataHealth'
 import { BalanceCard } from '../components/BalanceCard'
+import { CatIcon } from '../components/CatIcon'
 import { Hero } from '../components/Hero'
+import { KpiTile, QuickActions, SmartTipCard } from '../components/Tiles'
 import { greeting } from '../motion'
 import { Alert, Confirm, Field, Icon, Modal, Seg, useToast } from '../components/common'
-import { CategoryBars, DailySpendChart, Legend, RemainingChart } from '../components/charts'
+import { DailySpendChart, Legend, RemainingChart, SpendDonut } from '../components/charts'
 
-export function Dashboard({ onAdd }: { onAdd: () => void }) {
+/** Limits are shown in whole units, rounded down, so the app never nudges you to overspend. */
+const whole = (paise: number) => Math.floor(paise / 100) * 100
+const rs = (paise: number) => formatMoney(whole(paise))
+
+const dueChip = (n: number) => (n < 0 ? { t: `${-n}d overdue`, c: 'bad' } : n === 0 ? { t: 'Due today', c: 'warn' } : n <= 3 ? { t: `In ${n} day${n === 1 ? '' : 's'}`, c: 'warn' } : { t: `In ${n} days`, c: '' })
+
+export function Dashboard({ onAdd }: { onAdd: (type?: TxType) => void }) {
   const { cycle, budget, data, today, payPlanned, deletePlanned, addPlanned, addTx, active } = useStore()
   const toast = useToast()
+  const asideRef = useRef<HTMLElement>(null)
   const [planning, setPlanning] = useState(false)
   const [delPlan, setDelPlan] = useState<string | null>(null)
   const [paying, setPaying] = useState<PlannedItem | null>(null)
@@ -30,10 +37,18 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
   const series = dailySeries(cycle, data.transactions, today)
   const cats = spendByCategory(txs)
   const over = b.todayRemainingPaise < 0
-  const upcoming = data.planned.filter((p) => !p.done && p.dueDate >= cycle.start && p.dueDate < cycle.end).sort((a, b2) => a.dueDate.localeCompare(b2.dueDate))
-  const recent = [...txs].sort((a, b2) => (b2.date + b2.time).localeCompare(a.date + a.time)).slice(0, 5)
+  const cmp = compareWithPrevious(cycle, data.cycles, data.transactions, today)
+  const upcoming = upcomingItems(cycle, data.planned, b.allocationPaid, today)
+  const tips = smartTips({ budget: b, upcoming, comparison: cmp, cycle, txs: data.transactions, today })
+  const recent = [...txs].sort((a, b2) => (b2.date + b2.time).localeCompare(a.date + a.time)).slice(0, 6)
   const kinds = [['fixed', 'Fixed bills & EMIs'], ['investment', 'Investments & savings'], ['reserved', 'Reserved']] as const
   const barCls = b.utilizationPct >= 100 ? 'bad' : b.utilizationPct >= 80 ? 'warn' : ''
+  const trend = cmp && cmp.deltaPct !== null ? { text: `${Math.abs(cmp.deltaPct)}% vs last cycle`, tone: (cmp.deltaPct <= 0 ? 'good' : 'warn') as 'good' | 'warn', down: cmp.deltaPct <= 0 } : undefined
+
+  const payUpcoming = (u: (typeof upcoming)[number]) => {
+    if (u.kind === 'planned') setPaying(data.planned.find((p) => p.id === u.id) ?? null)
+    else setPayingAlloc(cycle.allocations.find((a) => a.id === u.id) ?? null)
+  }
 
   return (
     <div className="stack">
@@ -47,62 +62,70 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
       <BackupReminder />
       {b.warnings.map((w, i) => <Alert key={i} kind={b.status === 'over' || b.status === 'exhausted' ? 'bad' : 'warn'}>{w}</Alert>)}
 
-      <Hero b={b} cycle={cycle} over={over} onAdd={onAdd} />
+      <Hero b={b} cycle={cycle} over={over} onAdd={() => onAdd()} />
+
+      <QuickActions onAdd={onAdd} onPay={() => asideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
 
       <BalanceCard />
 
       <section className="grid stats" aria-label="Key numbers">
-        <div className="card stat"><div className="label">Original daily budget</div><div className="value num">{rs(b.originalDailyPaise)}</div><div className="sub">at cycle start</div></div>
-        <div className="card stat"><div className="label">Today’s recommended</div><div className="value num">{rs(b.todayLimitPaise)}</div><div className="sub">{b.todayLimitPaise >= b.originalDailyPaise ? 'at or above original' : 'below original'}</div></div>
-        <div className="card stat"><div className="label">Spent today</div><div className="value num">{rs(Math.max(0, b.todaySpentPaise))}</div><div className="sub">{rs(Math.max(0, b.todayRemainingPaise))} left</div></div>
-        <div className="card stat"><div className="label">Daily average</div><div className="value num">{rs(b.dailyAveragePaise)}</div><div className="sub">this cycle</div></div>
-        <div className="card stat"><div className="label">Available this cycle</div><div className="value num">{formatMoney(b.poolPaise)}</div><div className="sub">{formatMoney(b.protectedPaise)} set aside</div></div>
-        <div className="card stat"><div className="label">Spendable budget</div><div className="value num">{formatMoney(b.spendablePaise)}</div><div className="sub">after set-asides</div></div>
-        <div className="card stat"><div className="label">Spent this cycle</div><div className="value num">{formatMoney(b.variableSpentPaise)}</div><div className="sub">{b.plannedUnpaidPaise > 0 ? `+ ${formatMoney(b.plannedUnpaidPaise)} planned` : 'regular spending'}</div></div>
-        <div className="card stat">
-          <div className="label">Budget used</div><div className="value num">{b.utilizationPct}%</div>
-          <div className={`bar ${barCls}`} role="progressbar" aria-valuenow={Math.min(100, b.utilizationPct)} aria-valuemin={0} aria-valuemax={100} aria-label="Budget used"><i style={{ width: `${Math.min(100, b.utilizationPct)}%` }} /></div>
-        </div>
+        <KpiTile index={0} label="Original daily budget" value={b.originalDailyPaise} format={(n) => rs(n)} icon="calendar" color="var(--s1)" sub="at cycle start" />
+        <KpiTile index={1} label="Today’s recommended" value={b.todayLimitPaise} format={(n) => rs(n)} icon="spark" color="var(--s3)" sub={b.todayLimitPaise >= b.originalDailyPaise ? 'at or above original' : 'below original'} />
+        <KpiTile index={2} label="Spent today" value={Math.max(0, b.todaySpentPaise)} format={(n) => rs(n)} icon="bag" color="var(--s2)" sub={`${rs(Math.max(0, b.todayRemainingPaise))} left today`} />
+        <KpiTile index={3} label="Daily average" value={b.dailyAveragePaise} format={(n) => rs(n)} icon="gauge" color="var(--s4)" sub="this cycle" />
+        <KpiTile index={4} label="Available this cycle" value={b.poolPaise} format={(n) => formatMoney(Math.round(n))} icon="cash" color="var(--s6)" sub={`${formatMoney(b.protectedPaise)} set aside`} />
+        <KpiTile index={5} label="Spendable budget" value={b.spendablePaise} format={(n) => formatMoney(Math.round(n))} icon="home" color="var(--s7)" sub="after set-asides" />
+        <KpiTile index={6} label="Spent this cycle" value={b.variableSpentPaise} format={(n) => formatMoney(Math.round(n))} icon="trend" color="var(--s5)" sub={b.plannedUnpaidPaise > 0 ? `+ ${formatMoney(b.plannedUnpaidPaise)} planned` : 'regular spending'} trend={trend} />
+        <KpiTile index={7} label="Budget used" value={b.utilizationPct} format={(n) => `${Math.round(n)}%`} icon="gauge" color="var(--s8)" bar={{ pct: b.utilizationPct, cls: barCls }} sub={b.utilizationPct >= 80 ? 'getting close to the limit' : 'within budget'} />
       </section>
+
+      <SmartTipCard tips={tips} />
+
+      <div className="grid cols-2">
+        <section className="card" aria-label="Where the money goes">
+          <h2>Where the money goes</h2>
+          <p className="hint">Regular spending this cycle, by category.</p>
+          <SpendDonut rows={cats} />
+        </section>
+        <section className="card" aria-label="Upcoming bills">
+          <div className="row between"><h2>Upcoming bills</h2><button className="btn sm" onClick={() => setPlanning(true)}><Icon name="plus" size={16} /> Add</button></div>
+          <p className="hint">Reserved from your daily limit until paid.</p>
+          {upcoming.length === 0 ? <p className="muted">Nothing due. Bills with a due day, expected bills and planned purchases show up here.</p> : (
+            <ul className="list bills">
+              {upcoming.map((u) => {
+                const chip = dueChip(u.daysUntil)
+                return (
+                  <li key={u.key}>
+                    <CatIcon name={u.title} />
+                    <div className="grow"><div className="title">{u.title}</div><div className="small muted">{u.expected ? 'expected · ' : ''}{shortDate(u.date)}</div></div>
+                    <div className="bill-right">
+                      <b className="num">{formatMoney(u.amountPaise)}</b>
+                      <span className={`chip small ${chip.c}`}>{chip.t}</span>
+                    </div>
+                    <button className="btn sm" aria-label={`Mark ${u.title} paid`} onClick={() => payUpcoming(u)}>Paid</button>
+                    {u.kind === 'planned' && !u.expected && <button className="btn ghost sm" aria-label={`Remove ${u.title}`} onClick={() => setDelPlan(u.id)}><Icon name="trash" size={16} /></button>}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+      </div>
 
       <div className="grid cols-2">
         <section className="card" aria-label="Daily spending">
           <h2>Daily spending</h2>
-          <Legend items={[['var(--s1)', 'Spent'], ['var(--s2)', 'Today’s limit']]} />
+          <Legend items={[['var(--accent)', 'Spent'], ['var(--s2)', 'Today’s limit']]} />
           <DailySpendChart series={series} limit={b.todayLimitPaise} />
         </section>
         <section className="card" aria-label="Remaining budget">
           <h2>Remaining budget</h2>
-          <Legend items={[['var(--s1)', 'Remaining'], ['var(--muted)', 'Even pace']]} />
+          <Legend items={[['var(--accent)', 'Remaining'], ['var(--muted)', 'Even pace']]} />
           <RemainingChart series={series} />
         </section>
       </div>
 
-      <div className="grid cols-2">
-        <section className="card" aria-label="Upcoming bills">
-          <div className="row between"><h2>Upcoming &amp; planned</h2><button className="btn sm" onClick={() => setPlanning(true)}><Icon name="plus" size={16} /> Add</button></div>
-          <p className="hint">Reserved from your daily limit until paid.</p>
-          {upcoming.length === 0 ? <p className="muted">No upcoming bills or planned purchases.</p> : (
-            <ul className="list">
-              {upcoming.map((p) => (
-                <li key={p.id}>
-                  <div className="grow"><div className="title">{p.title}</div><div className="small muted">{p.id.startsWith('exp-') ? 'expected · estimate · ' : ''}due {shortDate(p.dueDate)}{p.dueDate < today ? ' · overdue' : ''}</div></div>
-                  <span className="amt num">{formatMoney(p.amountPaise)}</span>
-                  <button className="btn sm" onClick={() => setPaying(p)}>Paid</button>
-                  <button className="btn ghost sm" aria-label={`Remove ${p.title}`} onClick={() => setDelPlan(p.id)}><Icon name="trash" size={16} /></button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-        <section className="card" aria-label="Where the money goes">
-          <h2>Where the money goes</h2>
-          <p className="hint">Regular spending this cycle, by category.</p>
-          <CategoryBars rows={cats} />
-        </section>
-      </div>
-
-      <section className="card" aria-label="Set aside">
+      <section className="card" aria-label="Set aside" id="set-aside" ref={asideRef}>
         <h2>Set aside this cycle</h2>
         <p className="hint">Already taken out of your spendable budget. Tap <b>Paid</b> when you pay one: it is ticked off here and not counted as spending.</p>
         {cycle.allocations.filter((a) => a.amountPaise > 0).length === 0 && <p className="muted">Nothing set aside. Add bills and investments under Budget.</p>}
@@ -122,6 +145,7 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
                     const full = done >= a.amountPaise
                     return (
                       <li key={a.id}>
+                        <CatIcon name={a.name} size={34} />
                         <div className="grow">
                           <span className="nm">{a.name}</span>
                           <div className="sub num">{full ? formatMoney(done) : `${formatMoney(Math.max(0, done))} of ${formatMoney(a.amountPaise)}`}{a.dueDay ? ` · due ${ordinal(a.dueDay)}` : ''}</div>
@@ -139,38 +163,42 @@ export function Dashboard({ onAdd }: { onAdd: () => void }) {
 
       <div className="grid cols-2">
         <section className="card" aria-label="Recent">
-          <div className="row between"><h2>Recent</h2><a href="#/transactions" className="small">See all</a></div>
+          <div className="row between"><h2>Recent activity</h2><a href="#/transactions" className="small">See all</a></div>
           {recent.length === 0 ? <p className="muted">Nothing recorded yet this cycle. If you spend today, add it so the limit stays accurate.</p> : (
             <ul className="list">
-              {recent.map((t) => (
-                <li key={t.id}>
-                  <div className="grow"><div className="title">{t.merchant || t.category}</div><div className="small muted">{t.category} · {shortDate(t.date)}</div></div>
-                  <span className={`amt num ${t.type === 'refund' || t.type === 'income' ? 'in' : ''}`}>{t.type === 'refund' || t.type === 'income' ? '+' : ''}{formatMoney(t.amountPaise)}</span>
-                </li>
-              ))}
+              {recent.map((t) => {
+                const plus = t.type === 'refund' || t.type === 'income'
+                return (
+                  <li key={t.id}>
+                    <CatIcon name={t.category || t.merchant} />
+                    <div className="grow"><div className="title">{t.merchant || t.category}</div><div className="small muted">{t.category} · {shortDate(t.date)}</div></div>
+                    <span className={`amt num ${plus ? 'in' : ''}`}>{plus ? '+' : '-'}{formatMoney(t.amountPaise)}</span>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </section>
         <section className="card">
-        <details>
-          <summary>How is today’s limit calculated?</summary>
-          <table className="explain" style={{ marginTop: 8 }}>
-            <tbody>
-              {b.explain.map((l, i) => (
-                <tr key={i} className={l.sign === '=' ? 'eq' : ''}>
-                  <td className="sign">{l.sign === '=' ? '=' : l.sign === '-' ? '−' : '+'}</td>
-                  <td>{l.label}{l.note && <span className="muted small"> ({l.note})</span>}</td>
-                  <td className="num">{formatMoney(l.paise)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="hint" style={{ marginTop: 8 }}>
-            Carry-over of {formatMoney(cycle.openingCarryPaise)} is kept as a reserve; only the released part is included. Recorded spending is what you entered — if entries are missing, the limit is too generous.
-            At your current pace you would end the cycle with about {formatMoney(b.projectedCarryPaise)} to carry over.
-          </p>
-        </details>
-      </section>
+          <details>
+            <summary>How is today’s limit calculated?</summary>
+            <table className="explain" style={{ marginTop: 8 }}>
+              <tbody>
+                {b.explain.map((l, i) => (
+                  <tr key={i} className={l.sign === '=' ? 'eq' : ''}>
+                    <td className="sign">{l.sign === '=' ? '=' : l.sign === '-' ? '−' : '+'}</td>
+                    <td>{l.label}{l.note && <span className="muted small"> ({l.note})</span>}</td>
+                    <td className="num">{formatMoney(l.paise)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="hint" style={{ marginTop: 8 }}>
+              Carry-over of {formatMoney(cycle.openingCarryPaise)} is kept as a reserve; only the released part is included. Recorded spending is what you entered: if entries are missing, the limit is too generous.
+              At your current pace you would end the cycle with about {formatMoney(b.projectedCarryPaise)} to carry over.
+            </p>
+          </details>
+        </section>
       </div>
 
       {paying && (

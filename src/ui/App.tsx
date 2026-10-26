@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { formatMoney } from '../engine/money'
+import type { TxType } from '../engine/types'
 import { useStore } from '../state/store'
 import { Icon, Modal, useToast } from './components/common'
 import { effectiveMotion } from './motion'
@@ -33,6 +34,8 @@ export function App() {
   const toast = useToast()
   const [route, setRoute] = useState<Route>(readRoute())
   const [adding, setAdding] = useState(false)
+  const [addType, setAddType] = useState<TxType | undefined>(undefined)
+  const openAdd = (t?: TxType) => { setAddType(t); setAdding(true) }
 
   useEffect(() => {
     const on = () => setRoute(readRoute())
@@ -72,7 +75,7 @@ export function App() {
       case 'budget': return <Budget />
       case 'reports': return <Reports />
       case 'settings': return <Settings />
-      default: return <Dashboard onAdd={() => setAdding(true)} />
+      default: return <Dashboard onAdd={openAdd} />
     }
   }
 
@@ -100,10 +103,10 @@ export function App() {
         )}
         {page()}
       </main>
-      {route !== 'add' && <button className="fab" onClick={() => setAdding(true)} aria-label="Add expense"><Icon name="plus" /></button>}
+      {route !== 'add' && <button className="fab" onClick={() => openAdd()} aria-label="Add expense"><Icon name="plus" /></button>}
       {adding && (
-        <Modal title="Add expense" onClose={() => setAdding(false)}>
-          <ExpenseForm onSaved={(d) => void saveNew(d)} onCancel={() => setAdding(false)} />
+        <Modal title={addType === 'income' ? 'Add money' : 'Add expense'} onClose={() => setAdding(false)}>
+          <ExpenseForm defaultType={addType} onSaved={(d) => void saveNew(d)} onCancel={() => setAdding(false)} />
         </Modal>
       )}
       <AutoBackupRunner />

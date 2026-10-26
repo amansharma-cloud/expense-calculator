@@ -404,3 +404,52 @@ html[data-motion='rich'] .reveal, html[data-motion='rich'] main > .stack > * { a
 html[data-motion='rich'] .spark circle { animation: ping 2.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes ping { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.7); } }
 html[data-motion='rich'] .stat.card, html[data-motion='rich'] .card { transition-duration: .5s; }
+
+/* =====================================================================
+   Step 2: quick actions, KPI tiles, tip card, category icons, donut, bills
+   ===================================================================== */
+.cat-icon { display: inline-grid; place-items: center; border-radius: 14px; flex: none; color: var(--c, var(--muted)); background: color-mix(in srgb, var(--c, var(--muted)) 16%, transparent); box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent); }
+
+.quick { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 6px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.quick::-webkit-scrollbar { display: none; }
+.qa { flex: 1 0 84px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 8px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--ink); font-size: .8rem; font-weight: 600; text-decoration: none; cursor: pointer; box-shadow: var(--shadow), var(--highlight); scroll-snap-align: start; transition: transform .25s var(--ease), box-shadow .25s var(--ease); }
+.qa:active { transform: scale(.95); }
+@media (hover: hover) { .qa:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift), var(--highlight); } }
+.qa-ic { width: 46px; height: 46px; border-radius: 16px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 20%, transparent); }
+
+.kpi { padding: 14px 14px 12px; display: flex; flex-direction: column; gap: 2px; }
+.kpi-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; min-height: 40px; }
+.kpi-ic { width: 40px; height: 40px; border-radius: 14px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 20%, transparent); }
+.kpi-label { font-size: .8rem; color: var(--ink-2); }
+.kpi-value { font-size: 1.4rem; font-weight: 750; letter-spacing: -.01em; }
+.kpi-sub { font-size: .76rem; color: var(--muted); }
+.kpi .bar { margin: 6px 0 2px; }
+.chip.small { font-size: .72rem; padding: 2px 8px; gap: 3px; }
+
+.tipcard { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-left: 4px solid var(--accent); }
+.tipcard.tone-good { border-left-color: var(--good); } .tipcard.tone-warn { border-left-color: var(--warn); }
+.tip-ic { width: 44px; height: 44px; flex: none; border-radius: 14px; display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); }
+.tone-good .tip-ic { color: var(--good); background: var(--good-soft); } .tone-warn .tip-ic { color: var(--warn); background: var(--warn-soft); }
+.tip-body { flex: 1; min-width: 0; } .tip-body p { margin: 2px 0 0; font-size: .95rem; }
+.tip-body .eyebrow { color: var(--muted); }
+
+.donut-host { container-type: inline-size; }
+.donut { display: grid; grid-template-columns: 1fr; gap: 14px; align-items: center; margin-top: 8px; }
+@container (min-width: 500px) { .donut { grid-template-columns: 190px 1fr; gap: 18px; } .donut-chart { margin: 0 !important; } }
+.donut-chart { position: relative; height: 190px; }
+.donut-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; line-height: 1.2; }
+.donut-center span { font-size: .7rem; color: var(--muted); } .donut-center b { font-size: 1.05rem; }
+.legend-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.legend-list li { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: .9rem; }
+.legend-list .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; margin-left: -4px; }
+.legend-list .ln { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.donut-chart { height: 200px; max-width: 240px; margin: 0 auto; width: 100%; }
+
+.bills li { gap: 12px; }
+.bill-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.chip.bad { background: var(--bad-soft); color: var(--bad); } .chip.warn { background: var(--warn-soft); color: var(--warn); }
+
+.mini li { gap: 12px; }
+
+html[data-motion='rich'] .qa-ic, html[data-motion='rich'] .kpi-ic { animation: floaty 4s ease-in-out infinite alternate; }
+@keyframes floaty { from { transform: translateY(0); } to { transform: translateY(-3px); } }
