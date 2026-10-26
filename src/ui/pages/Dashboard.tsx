@@ -212,7 +212,9 @@ export function Dashboard({ onAdd }: { onAdd: (type?: TxType) => void }) {
                 <span className="grow nm">{r.bill.name}</span>
                 {r.item?.done
                   ? <><b className="num">{formatMoney(r.paidPaise)}</b><span className="chip good small"><Icon name="check" size={14} /> Paid</span></>
-                  : <>{r.bill.estimatePaise > 0 && <span className="num muted">~{formatMoney(r.bill.estimatePaise)}</span>}{r.item && <button className="btn sm" aria-label={`Mark ${r.bill.name} paid`} onClick={() => setPaying(r.item!)}>Paid</button>}</>}
+                  : <>{r.bill.renewMonth && !r.item
+                    ? <span className="muted small">Renews {new Date(2000, r.bill.renewMonth - 1, 1).toLocaleString('en', { month: 'short' })} · {formatMoney(r.bill.estimatePaise)}/yr</span>
+                    : r.bill.estimatePaise > 0 && <span className="num muted">~{formatMoney(r.bill.estimatePaise)}</span>}{r.item && <button className="btn sm" aria-label={`Mark ${r.bill.name} paid`} onClick={() => setPaying(r.item!)}>Paid</button>}</>}
               </li>
             ))}
           </ul>

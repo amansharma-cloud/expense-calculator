@@ -573,3 +573,5 @@ html[data-motion="off"] .skeleton { animation: none; }
 .sub-list li { display: flex; align-items: center; gap: 10px; padding: 6px 0; min-width: 0; }
 .sub-list .nm { font-weight: 600; }
 .sub-list .grow { flex: 1; min-width: 0; }
+.rows.bills .c-bill { grid-column: 1 / -1; display: grid; gap: 6px; }
+.month-pick { width: auto; min-width: 140px; }

@@ -4,7 +4,7 @@ import { parseAmount } from '../../engine/money'
 import { CatIcon } from './CatIcon'
 import type { Allocation, AllocationKind, ExpectedBill, Paise } from '../../engine/types'
 import { DayPicker } from './DayPicker'
-import { Icon } from './common'
+import { Icon, Seg } from './common'
 
 /** Text input that edits an amount in rupees but reports integer paise (or null while invalid). */
 export function MoneyInput({ value, onChange, id, label, allowZero = true, invalid }: {
@@ -82,6 +82,7 @@ export function AllocationEditor({ items, onChange, onConvert }: {
 }
 
 /** Bills that come every cycle with a changing amount. The estimate is reserved until you pay the real amount. */
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 export const DEFAULT_SUBSCRIPTIONS = ['Netflix', 'Amazon Prime', 'Hotstar', 'Sony Liv', 'YouTube', 'KodeKloud']
 
 /** Expected bills; with `subscriptions` it edits the subscription entries instead (the two lists share one array). */
@@ -97,7 +98,7 @@ export function ExpectedBillsEditor({ all, onChange, subscriptions = false }: { 
       {items.length === 0 && <p className="muted">{subscriptions ? 'None yet. Tap a service below to add it.' : 'None yet. Add bills like electricity or mobile recharge: you enter the real amount when you pay.'}</p>}
       {items.length > 0 && (
         <div className="rows bills" role="list" aria-label={subscriptions ? 'Subscriptions' : 'Expected bills'}>
-          <div className="rows-head" aria-hidden="true"><span>{subscriptions ? 'Subscription' : 'Bill'}</span><span>Usual amount ({getCurrency().symbol})</span><span>Due day</span><span /></div>
+          <div className="rows-head" aria-hidden="true"><span>{subscriptions ? 'Subscription' : 'Bill'}</span><span>{subscriptions ? 'Amount' : 'Usual amount'} ({getCurrency().symbol})</span><span>Due day</span><span /></div>
           {items.map((b) => (
             <div key={b.id} className="row-card" role="listitem">
               <div className="field c-name">
@@ -113,6 +114,20 @@ export function ExpectedBillsEditor({ all, onChange, subscriptions = false }: { 
                 <span className="lbl m-only">Due day</span>
                 <DayPicker label={`Due day for ${b.name || 'bill'}`} value={b.dueDay} optional emptyText="Any day" onChange={(d) => update(b.id, { dueDay: d })} />
               </div>
+              {subscriptions && (
+                <div className="field c-bill">
+                  <span className="lbl">Charged</span>
+                  <div className="row wrap">
+                    <Seg label={`How often ${b.name || 'this'} is charged`} value={b.renewMonth ? 'yearly' : 'monthly'} options={[['monthly', 'Every month'], ['yearly', 'Once a year']]} onChange={(v) => update(b.id, { renewMonth: v === 'yearly' ? (b.renewMonth ?? new Date().getMonth() + 1) : undefined })} />
+                    {b.renewMonth && (
+                      <select className="input month-pick" aria-label={`Renewal month for ${b.name || 'subscription'}`} value={b.renewMonth} onChange={(e) => update(b.id, { renewMonth: Number(e.target.value) })}>
+                        {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                      </select>
+                    )}
+                  </div>
+                  {b.renewMonth && <span className="hint">The amount above is the full yearly price. It is reserved only in the pay period that contains the renewal date.</span>}
+                </div>
+              )}
               <div className="c-act">
                 <button type="button" className="btn ghost danger" aria-label={`Remove ${b.name}`} onClick={() => change(items.filter((x) => x.id !== b.id))}><Icon name="trash" size={18} /></button>
               </div>

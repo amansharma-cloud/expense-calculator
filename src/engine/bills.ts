@@ -17,7 +17,13 @@ export function billsForCycle(bills: ExpectedBill[] | undefined, start: ISODate,
   const last = addDays(end, -1)
   for (const b of bills ?? []) {
     let due: ISODate | null = last
-    if (b.dueDay) {
+    if (b.renewMonth) {
+      due = null
+      for (let d = start; d < end; d = addDays(d, 1)) {
+        const [y, m, dd] = d.split('-').map(Number)
+        if (m === b.renewMonth && dd === Math.min(b.dueDay ?? 1, daysInMonth(y, m))) { due = d; break }
+      }
+    } else if (b.dueDay) {
       due = null
       for (let d = start; d < end; d = addDays(d, 1)) {
         const [y, m, dd] = d.split('-').map(Number)

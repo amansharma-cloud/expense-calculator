@@ -183,3 +183,17 @@ describe('subscriptions reuse the expected-bill reservation', () => {
     expect(a[0].amountPaise).toBe(64900)
   })
 })
+
+describe('yearly subscriptions', () => {
+  const yearly = [{ id: 'y1', name: 'Prime', estimatePaise: 149900, category: 'Prime', subscription: true, renewMonth: 3, dueDay: 14 }]
+  const pay = { kind: 'monthly', day: 25 } as const
+  it('is reserved only in the pay period that contains the renewal date', () => {
+    expect(billsForCycle(yearly, '2027-02-25', '2027-03-25', pay).map((p) => p.dueDate)).toEqual(['2027-03-14'])
+    expect(billsForCycle(yearly, '2027-03-25', '2027-04-25', pay)).toEqual([])
+    expect(billsForCycle(yearly, '2026-10-25', '2026-11-25', pay)).toEqual([])
+  })
+  it('defaults to the 1st of the month and clamps short months', () => {
+    expect(billsForCycle([{ ...yearly[0], dueDay: undefined, renewMonth: 11 }], '2026-10-25', '2026-11-25', pay).map((p) => p.dueDate)).toEqual(['2026-11-01'])
+    expect(billsForCycle([{ ...yearly[0], dueDay: 31, renewMonth: 2 }], '2027-02-25', '2027-03-25', pay).map((p) => p.dueDate)).toEqual(['2027-02-28'])
+  })
+})

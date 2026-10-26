@@ -86,6 +86,8 @@ export interface ExpectedBill {
   category: string
   /** A streaming/app subscription: same reserve-then-pay behaviour, shown in its own section. */
   subscription?: boolean
+  /** Yearly bills are reserved only in the pay period that contains this month (1-12) and `dueDay` (default the 1st). Missing = every month. */
+  renewMonth?: number
 }
 
 /**
