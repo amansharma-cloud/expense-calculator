@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Area, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { DayPoint } from '../../engine/budget'
 import { shortDate } from '../../engine/dates'
@@ -128,6 +129,7 @@ export function MonthlyChart({ rows }: { rows: { label: string; spendable: numbe
 
 /** Spending by category: donut with the total in the middle and a legend with icons, shares and amounts. */
 export function SpendDonut({ rows, max = 5 }: { rows: { category: string; paise: Paise }[]; max?: number }) {
+  const [hot, setHot] = useState<number | null>(null)
   if (!rows.length) return <p className="muted">No spending yet this cycle.</p>
   const total = rows.reduce((s, r) => s + r.paise, 0) || 1
   const top = rows.slice(0, max)
@@ -140,17 +142,20 @@ export function SpendDonut({ rows, max = 5 }: { rows: { category: string; paise:
       <div className="donut-chart" role="img" aria-label="Spending by category">
         <ResponsiveContainer>
           <PieChart>
-            <Pie data={slices} dataKey="paise" nameKey="category" innerRadius="64%" outerRadius="94%" paddingAngle={slices.length > 1 ? 3 : 0} cornerRadius={6} stroke="none" startAngle={90} endAngle={-270} animationDuration={1100}>
-              {slices.map((s, i) => <Cell key={s.category} fill={colour(s.category, i)} />)}
+            <Pie data={slices} dataKey="paise" nameKey="category" innerRadius="64%" outerRadius="94%" paddingAngle={slices.length > 1 ? 3 : 0} cornerRadius={6} stroke="none" startAngle={90} endAngle={-270} animationDuration={1100} onMouseEnter={(_, i) => setHot(i)} onMouseLeave={() => setHot(null)} onClick={(_, i) => setHot((h: number | null) => (h === i ? null : i))}>
+              {slices.map((s, i) => <Cell key={s.category} fill={colour(s.category, i)} fillOpacity={hot === null || hot === i ? 1 : 0.35} style={{ transition: 'fill-opacity .2s' }} />)}
             </Pie>
-            <Tooltip formatter={(v) => formatMoney(Number(v))} contentStyle={{ background: 'var(--modal)', border: '1px solid var(--line)', borderRadius: 12 }} />
           </PieChart>
         </ResponsiveContainer>
-        <div className="donut-center"><span>Total spent</span><b className="num">{formatMoney(total)}</b></div>
+        <div className="donut-center" aria-live="polite">
+          {hot !== null && slices[hot]
+            ? <><span className="dc-name" style={{ color: colour(slices[hot].category, hot) }}>{slices[hot].category}</span><b className="num">{formatMoney(slices[hot].paise)}</b><span>{Math.round((slices[hot].paise / total) * 100)}%</span></>
+            : <><span>Total spent</span><b className="num">{formatMoney(total)}</b></>}
+        </div>
       </div>
       <ul className="legend-list">
         {slices.map((s, i) => (
-          <li key={s.category}>
+          <li key={s.category} className={hot === i ? 'on' : ''} style={{ opacity: hot === null || hot === i ? 1 : 0.55 }} onMouseEnter={() => setHot(i)} onMouseLeave={() => setHot(null)}>
             {s.category.startsWith('Other (') ? <span className="cat-icon" style={{ '--c': 'var(--muted)', width: 32, height: 32 } as React.CSSProperties} /> : <CatIcon name={s.category} size={32} />}
             <span className="dot" style={{ background: colour(s.category, i) }} aria-hidden="true" />
             <span className="grow ln">{s.category}</span>
