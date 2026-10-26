@@ -16,12 +16,12 @@ export interface CategoryStyle {
 
 const RULES: { concept: string; icon: CatIcon; color: string; re: RegExp; image?: string }[] = [
   // brand artwork first, so "Car EMI" is a car and "HDFC RD" is HDFC rather than the generic EMI / savings icons
-  { concept: 'netflix', icon: 'play', color: 'var(--s3)', image: 'netflix.svg', re: /netflix/ },
-  { concept: 'prime', icon: 'play', color: 'var(--s3)', image: 'prime.svg', re: /prime|amazon video/ },
-  { concept: 'hotstar', icon: 'play', color: 'var(--s3)', image: 'hotstar.svg', re: /hotstar|disney/ },
-  { concept: 'sonyliv', icon: 'play', color: 'var(--s3)', image: 'sonyliv.svg', re: /sony ?liv/ },
-  { concept: 'youtube', icon: 'play', color: 'var(--s3)', image: 'youtube.svg', re: /youtube/ },
-  { concept: 'kodekloud', icon: 'play', color: 'var(--s3)', image: 'kodekloud.svg', re: /kode ?kloud/ },
+  { concept: 'netflix', icon: 'play', color: 'var(--s3)', image: 'netflix.png', re: /netflix/ },
+  { concept: 'prime', icon: 'play', color: 'var(--s3)', image: 'prime.png', re: /prime|amazon video/ },
+  { concept: 'hotstar', icon: 'play', color: 'var(--s3)', image: 'hotstar.png', re: /hotstar|disney/ },
+  { concept: 'sonyliv', icon: 'play', color: 'var(--s3)', image: 'sonyliv.png', re: /sony ?liv/ },
+  { concept: 'youtube', icon: 'play', color: 'var(--s3)', image: 'youtube.png', re: /youtube/ },
+  { concept: 'kodekloud', icon: 'play', color: 'var(--s3)', image: 'kodekloud.png', re: /kode ?kloud/ },
   { concept: 'jupiter', icon: 'trend', color: 'var(--s6)', image: 'jupiter.png', re: /jupiter/ },
   { concept: 'hdfc', icon: 'card', color: 'var(--s7)', image: 'hdfc.png', re: /hdfc/ },
   { concept: 'car-emi', icon: 'car', color: 'var(--s1)', image: 'car.png', re: /car emi|car loan|vehicle (emi|loan)/ },
