@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { parseBackup } from '../../db/backup'
 import { useStore } from '../../state/store'
 import { Alert, Confirm, Field, Icon, Modal, Seg, useToast } from '../components/common'
 import { SectionHead } from '../components/Section'
 import { SyncSettings } from '../components/CloudSync'
 import { DataHealth } from '../components/DataHealth'
-import { ImportWizard } from '../components/ImportWizard'
+const ImportWizard = lazy(() => import('../components/ImportWizard').then((m) => ({ default: m.ImportWizard })))
 
 export function Settings() {
   const { active, profiles, plan, savePlan, renameActive, setPin, lock, switchAway, removeProfile, wipe, replaceAll, disableSync } = useStore()
@@ -87,7 +87,7 @@ export function Settings() {
 
       <section className="card stack">
         <SectionHead icon="list" color="var(--s7)" title="Import from Excel" hint="Bring your old monthly sheets in, with a preview first." />
-        {!importing ? <button className="btn" onClick={() => setImporting(true)}><Icon name="upload" size={18} /> Import old tracker (.xlsx)</button> : <ImportWizard onDone={() => setImporting(false)} />}
+        {!importing ? <button className="btn" onClick={() => setImporting(true)}><Icon name="upload" size={18} /> Import old tracker (.xlsx)</button> : <Suspense fallback={<div className="skeleton" style={{ height: 120 }} />}><ImportWizard onDone={() => setImporting(false)} /></Suspense>}
       </section>
 
       <section className="card stack">

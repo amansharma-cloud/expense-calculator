@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx'
 import { cycleLabel, isValidDate } from '../engine/dates'
 import { closingBalance } from '../engine/budget'
 import { getCurrency, isCurrencyCode } from '../engine/currency'
@@ -124,7 +123,8 @@ export function transactionsToCSV(txs: Transaction[]): string {
   return [txHeaders(), ...rows].map((r) => r.map((c) => csvCell(String(c))).join(',')).join('\r\n') + '\r\n'
 }
 
-export function exportWorkbook(data: ProfileData): Uint8Array<ArrayBuffer> {
+export async function exportWorkbook(data: ProfileData): Promise<Uint8Array<ArrayBuffer>> {
+  const XLSX = await import('xlsx') // loaded only when someone exports to Excel
   const wb = XLSX.utils.book_new()
   const txs = [...data.transactions].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
   const txSheet = XLSX.utils.aoa_to_sheet([

@@ -85,7 +85,7 @@ export function Transactions() {
         </div>
         <div className="row">
           <button className="btn sm" disabled={!filtered.length} onClick={() => { download('transactions.csv', transactionsToCSV(filtered), 'text/csv;charset=utf-8'); toast('CSV downloaded') }}><Icon name="download" size={16} /> CSV</button>
-          <button className="btn sm" disabled={!filtered.length} onClick={() => { download('daily-spend.xlsx', exportWorkbook({ ...data, transactions: filtered }), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); toast('Excel file downloaded') }}><Icon name="download" size={16} /> Excel</button>
+          <button className="btn sm" disabled={!filtered.length} onClick={async () => { download('daily-spend.xlsx', await exportWorkbook({ ...data, transactions: filtered }), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); toast('Excel file downloaded') }}><Icon name="download" size={16} /> Excel</button>
         </div>
       </div>
 

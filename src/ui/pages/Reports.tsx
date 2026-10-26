@@ -46,7 +46,7 @@ export function Reports() {
           <select id="rc" className="input" style={{ width: 'auto', maxWidth: '100%' }} value={c.start} onChange={(e) => setSel(e.target.value)}>
             {cycles.map((x) => <option key={x.start} value={x.start}>{x.label ? x.label + ' · ' : ''}{cycleLabel(x.start, x.end)}</option>)}
           </select>
-          <button className="btn sm" onClick={() => download('daily-spend-report.xlsx', exportWorkbook(data), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}><Icon name="download" size={16} /> Excel</button>
+          <button className="btn sm" onClick={async () => download('daily-spend-report.xlsx', await exportWorkbook(data), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}><Icon name="download" size={16} /> Excel</button>
         </div>
       </div>
 

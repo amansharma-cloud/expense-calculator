@@ -553,3 +553,8 @@ img, svg, canvas { max-width: 100%; }
 
 .savebar { position: sticky; bottom: 92px; z-index: 12; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 20px; background: var(--nav); box-shadow: var(--shadow-lift); }
 @media (min-width: 860px) { .savebar { bottom: 18px; } }
+
+/* loading skeletons */
+.skeleton { border-radius: 18px; background: linear-gradient(100deg, var(--surface-2) 30%, color-mix(in srgb, var(--surface-2) 55%, var(--accent) 12%) 50%, var(--surface-2) 70%); background-size: 220% 100%; animation: skel 1.4s linear infinite; }
+@keyframes skel { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+html[data-motion="off"] .skeleton { animation: none; }

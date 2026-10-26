@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { formatMoney } from '../engine/money'
 import type { TxType } from '../engine/types'
 import { useStore } from '../state/store'
@@ -6,12 +6,13 @@ import { Icon, Modal, useToast } from './components/common'
 import { effectiveMotion } from './motion'
 import { AutoBackupRunner } from './components/DataHealth'
 import { ExpenseForm } from './components/ExpenseForm'
-import { Budget } from './pages/Budget'
 import { Dashboard } from './pages/Dashboard'
 import { NewCycle, ProfilePicker, Setup } from './pages/Gate'
-import { Reports } from './pages/Reports'
-import { Settings } from './pages/Settings'
-import { Transactions } from './pages/Transactions'
+
+const Budget = lazy(() => import('./pages/Budget').then((m) => ({ default: m.Budget })))
+const Reports = lazy(() => import('./pages/Reports').then((m) => ({ default: m.Reports })))
+const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })))
+const Transactions = lazy(() => import('./pages/Transactions').then((m) => ({ default: m.Transactions })))
 
 const ROUTES = [
   ['dashboard', 'Dashboard', 'home'],
@@ -101,7 +102,7 @@ export function App() {
             </a>
           </div>
         )}
-        {page()}
+        <Suspense fallback={<div className="stack"><div className="skeleton" style={{ height: 56, width: '50%' }} /><div className="skeleton" style={{ height: 180 }} /><div className="skeleton" style={{ height: 180 }} /></div>}>{page()}</Suspense>
       </main>
       {route !== 'add' && <button className="fab" onClick={() => openAdd()} aria-label="Add expense"><Icon name="plus" /></button>}
       {adding && (
