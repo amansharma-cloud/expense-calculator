@@ -31,6 +31,7 @@ export function Dashboard({ onAdd }: { onAdd: (type?: TxType) => void }) {
   const [delPlan, setDelPlan] = useState<string | null>(null)
   const [paying, setPaying] = useState<PlannedItem | null>(null)
   const [payingAlloc, setPayingAlloc] = useState<Allocation | null>(null)
+  const [showAllBills, setShowAllBills] = useState(false)
   if (!cycle || !budget) return null
   const b = budget
   const txs = cycleTransactions(cycle, data.transactions)
@@ -39,6 +40,13 @@ export function Dashboard({ onAdd }: { onAdd: (type?: TxType) => void }) {
   const over = b.todayRemainingPaise < 0
   const cmp = compareWithPrevious(cycle, data.cycles, data.transactions, today)
   const upcoming = upcomingItems(cycle, data.planned, b.allocationPaid, today)
+  // bills grouped by due date (soonest first), so a day with several payments is one row
+  const billGroups = Object.values(upcoming.reduce<Record<string, { date: string; daysUntil: number; items: typeof upcoming; total: number }>>((acc, u) => {
+    const g = (acc[u.date] ??= { date: u.date, daysUntil: u.daysUntil, items: [], total: 0 })
+    g.items.push(u); g.total += u.amountPaise
+    return acc
+  }, {})).sort((x, y) => x.date.localeCompare(y.date))
+  const dueSoon = upcoming.filter((u) => u.daysUntil <= 7).reduce((s2, u) => s2 + u.amountPaise, 0)
   const tips = smartTips({ budget: b, upcoming, comparison: cmp, cycle, txs: data.transactions, today })
   const recent = [...txs].sort((a, b2) => (b2.date + b2.time).localeCompare(a.date + a.time)).slice(0, 6)
   const kinds = [['fixed', 'Fixed bills & EMIs'], ['investment', 'Investments & savings'], ['reserved', 'Reserved']] as const
@@ -64,7 +72,7 @@ export function Dashboard({ onAdd }: { onAdd: (type?: TxType) => void }) {
 
       <Hero b={b} cycle={cycle} over={over} onAdd={() => onAdd()} />
 
-      <QuickActions onAdd={onAdd} onPay={() => asideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
+      <QuickActions onAdd={() => onAdd()} onPay={() => asideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
 
       <BalanceCard />
 
@@ -88,26 +96,46 @@ export function Dashboard({ onAdd }: { onAdd: (type?: TxType) => void }) {
           <SpendDonut rows={cats} />
         </section>
         <section className="card" aria-label="Upcoming bills">
-          <div className="row between"><h2>Upcoming bills</h2><button className="btn sm" onClick={() => setPlanning(true)}><Icon name="plus" size={16} /> Add</button></div>
-          <p className="hint">Reserved from your daily limit until paid.</p>
-          {upcoming.length === 0 ? <p className="muted">Nothing due. Bills with a due day, expected bills and planned purchases show up here.</p> : (
-            <ul className="list bills">
-              {upcoming.map((u) => {
-                const chip = dueChip(u.daysUntil)
+          <div className="row between">
+            <div>
+              <h2>Upcoming bills</h2>
+              <p className="hint" style={{ margin: 0 }}>{dueSoon > 0 ? <>{formatMoney(dueSoon)} due in the next 7 days</> : 'Nothing due in the next 7 days'}</p>
+            </div>
+            <button className="btn sm" onClick={() => setPlanning(true)}><Icon name="plus" size={16} /> Add</button>
+          </div>
+          {upcoming.length === 0 ? <p className="muted" style={{ marginTop: 10 }}>Nothing due. Bills with a due day, expected bills and planned purchases show up here.</p> : (
+            <div className="bill-groups">
+              {(showAllBills ? billGroups : billGroups.slice(0, 3)).map((g, gi) => {
+                const chip = dueChip(g.daysUntil)
+                const names = g.items.slice(0, 2).map((i) => i.title).join(', ') + (g.items.length > 2 ? ` +${g.items.length - 2} more` : '')
+                const d = new Date(g.date + 'T00:00:00')
                 return (
-                  <li key={u.key}>
-                    <CatIcon name={u.title} />
-                    <div className="grow"><div className="title">{u.title}</div><div className="small muted">{u.expected ? 'expected · ' : ''}{shortDate(u.date)}</div></div>
-                    <div className="bill-right">
-                      <b className="num">{formatMoney(u.amountPaise)}</b>
-                      <span className={`chip small ${chip.c}`}>{chip.t}</span>
-                    </div>
-                    <button className="btn sm" aria-label={`Mark ${u.title} paid`} onClick={() => payUpcoming(u)}>Paid</button>
-                    {u.kind === 'planned' && !u.expected && <button className="btn ghost sm" aria-label={`Remove ${u.title}`} onClick={() => setDelPlan(u.id)}><Icon name="trash" size={16} /></button>}
-                  </li>
+                  <details key={g.date} className={`bill-group ${g.daysUntil < 0 ? 'late' : ''}`} open={gi === 0 && g.items.length <= 3}>
+                    <summary>
+                      <span className="date-tile"><b>{d.getDate()}</b><span>{d.toLocaleString('en', { month: 'short' }).toUpperCase()}</span></span>
+                      <span className="bg-main">
+                        <span className="bg-names">{names}</span>
+                        <span className={`chip small ${chip.c}`}>{chip.t}</span>
+                      </span>
+                      <span className="bg-total num">{formatMoney(g.total)}</span>
+                      <Icon name="down" size={16} />
+                    </summary>
+                    <ul className="bg-items">
+                      {g.items.map((u) => (
+                        <li key={u.key}>
+                          <CatIcon name={u.title} size={30} />
+                          <span className="grow"><span className="nm">{u.title}</span>{u.expected && <span className="muted small"> · expected</span>}</span>
+                          <b className="num">{formatMoney(u.amountPaise)}</b>
+                          <button className="btn sm" aria-label={`Mark ${u.title} paid`} onClick={() => payUpcoming(u)}>Paid</button>
+                          {u.kind === 'planned' && !u.expected && <button className="btn ghost sm" aria-label={`Remove ${u.title}`} onClick={() => setDelPlan(u.id)}><Icon name="trash" size={16} /></button>}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
                 )
               })}
-            </ul>
+              {billGroups.length > 3 && <button className="btn ghost sm" style={{ alignSelf: 'flex-start' }} onClick={() => setShowAllBills(!showAllBills)}>{showAllBills ? 'Show fewer' : `Show ${billGroups.length - 3} more date${billGroups.length - 3 === 1 ? '' : 's'}`}</button>}
+            </div>
           )}
         </section>
       </div>

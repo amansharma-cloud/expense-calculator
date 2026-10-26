@@ -32,10 +32,9 @@ export function KpiTile({ label, value, format, icon, color, sub, trend, bar, in
   )
 }
 
-export function QuickActions({ onAdd, onPay }: { onAdd: (type?: 'income') => void; onPay: () => void }) {
+export function QuickActions({ onAdd, onPay }: { onAdd: () => void; onPay: () => void }) {
   const items: { label: string; icon: string; color: string; onClick?: () => void; href?: string }[] = [
-    { label: 'Add expense', icon: 'plus', color: 'var(--s2)', onClick: () => onAdd() },
-    { label: 'Add money', icon: 'down', color: 'var(--s6)', onClick: () => onAdd('income') },
+    { label: 'Add expense', icon: 'plus', color: 'var(--s2)', onClick: onAdd },
     { label: 'Pay bills', icon: 'check', color: 'var(--s1)', onClick: onPay },
     { label: 'Import', icon: 'upload', color: 'var(--s7)', href: '#/settings' },
     { label: 'Backup', icon: 'download', color: 'var(--s3)', href: '#/settings' },
