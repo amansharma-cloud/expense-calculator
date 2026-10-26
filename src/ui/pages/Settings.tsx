@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { parseBackup } from '../../db/backup'
 import { useStore } from '../../state/store'
 import { Alert, Confirm, Field, Icon, Modal, Seg, useToast } from '../components/common'
+import { SectionHead } from '../components/Section'
 import { SyncSettings } from '../components/CloudSync'
 import { DataHealth } from '../components/DataHealth'
 import { ImportWizard } from '../components/ImportWizard'
@@ -29,10 +30,10 @@ export function Settings() {
 
   return (
     <div className="stack">
-      <div className="page-head"><h1>Settings &amp; Profiles</h1></div>
+      <div className="page-head reveal"><div><h1>Settings &amp; Profiles</h1><span className="muted small">Your profile, privacy, backups and how the app looks.</span></div></div>
 
       <section className="card stack">
-        <h2>Profile</h2>
+        <SectionHead icon="users" color="var(--s1)" title="Profile" hint="Each profile has its own salary, budget and transactions." />
         <form className="row" onSubmit={async (e) => { e.preventDefault(); await renameActive(name); toast('Renamed') }}>
           <input className="input" style={{ flex: 1, minWidth: 160 }} aria-label="Profile name" value={name} onChange={(e) => setName(e.target.value)} />
           <button className="btn" disabled={!name.trim() || name === active.name}>Rename</button>
@@ -45,7 +46,7 @@ export function Settings() {
       </section>
 
       <section className="card stack">
-        <h2>PIN &amp; privacy</h2>
+        <SectionHead icon="lock" color="var(--s6)" title="PIN &amp; privacy" hint="A PIN encrypts this profile on this device." />
         {active.locked
           ? <Alert kind="good">This profile is encrypted with your PIN (AES-256-GCM). It locks after 5 minutes in the background.</Alert>
           : <Alert kind="warn">No PIN: this profile is <b>not</b> encrypted. Anyone using this browser on this device can open it from the profile list.</Alert>}
@@ -60,7 +61,7 @@ export function Settings() {
       <SyncSettings />
 
       <section className="card stack">
-        <h2>Appearance</h2>
+        <SectionHead icon="spark" color="var(--s5)" title="Appearance" hint="Theme and animations." />
         <Field label="Theme"><Seg label="Theme" value={plan.theme} onChange={(theme) => { void savePlan({ ...plan, theme }) }} options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']]} /></Field>
         <Field label="Animations" hint="Auto follows your device. Standard: numbers count up, rings and bars grow, cards slide in. Rich adds a moving glow background, a shimmering hero card and pulsing highlights (uses more battery). Off: no motion.">
           <Seg<'auto' | 'standard' | 'rich' | 'off'> label="Animations" value={plan.motion ?? 'auto'} onChange={(m) => { void savePlan({ ...plan, motion: m === 'auto' ? undefined : m }) }} options={[['auto', 'Auto'], ['standard', 'Standard'], ['rich', 'Rich'], ['off', 'Off']]} />
@@ -73,7 +74,7 @@ export function Settings() {
       <DataHealth />
 
       <section className="card stack">
-        <h2>Restore from a backup</h2>
+        <SectionHead icon="upload" color="var(--s3)" title="Restore from a backup" hint="Replace this profile with a backup file." />
         <p className="ink2">Your data lives only in this browser. Clearing site data, uninstalling the browser, or a private/incognito window can erase it, so keep a recent backup.</p>
         <div className="row">
           <label className="btn" style={{ cursor: 'pointer' }}><Icon name="upload" size={18} /> Restore from file
@@ -85,12 +86,12 @@ export function Settings() {
       </section>
 
       <section className="card stack">
-        <h2>Import from Excel</h2>
+        <SectionHead icon="list" color="var(--s7)" title="Import from Excel" hint="Bring your old monthly sheets in, with a preview first." />
         {!importing ? <button className="btn" onClick={() => setImporting(true)}><Icon name="upload" size={18} /> Import old tracker (.xlsx)</button> : <ImportWizard onDone={() => setImporting(false)} />}
       </section>
 
       <section className="card stack">
-        <h2>About your data</h2>
+        <SectionHead icon="info" color="var(--s4)" title="About your data" />
         <ul className="ink2" style={{ margin: 0, paddingLeft: 18 }}>
           <li>Everything is stored in this browser (IndexedDB) on this device. Nothing is sent to any server; there is no account, analytics or tracking.</li>
           <li>The app works offline once loaded (after installing it as an app, or after its first load). It cannot sync between devices.</li>
@@ -99,8 +100,8 @@ export function Settings() {
         </ul>
       </section>
 
-      <section className="card stack">
-        <h2>Danger zone</h2>
+      <section className="card stack danger-zone">
+        <SectionHead icon="warn" color="var(--bad)" title="Danger zone" hint="These cannot be undone. Download a backup first." />
         <div className="row">
           <button className="btn danger" onClick={() => { setTyped(''); setDlg('reset') }}>Erase this profile’s data</button>
           <button className="btn danger" onClick={() => { setTyped(''); setDlg('delete') }}>Delete this profile</button>

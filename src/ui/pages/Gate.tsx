@@ -28,14 +28,15 @@ export function ProfilePicker() {
 
   if (locked) {
     return (
-      <div className="gate"><form className="card stack" onSubmit={async (e) => {
+      <div className="gate"><form className="card glass stack reveal" onSubmit={async (e) => {
         e.preventDefault()
         try { await selectProfile(locked.id, unlockPin); setUnlockPin('') } catch (x) { setErr(x instanceof WrongPinError ? 'Wrong PIN. Try again.' : 'Could not open this profile.') }
       }}>
-        <div className="row"><span className="avatar"><Icon name="lock" size={16} /></span><h1>{locked.name}</h1></div>
+        <div className="lock-badge"><Icon name="lock" size={28} /></div>
+        <h1 style={{ textAlign: 'center' }}>{locked.name}</h1>
         <p className="ink2">This profile is protected with a PIN. Its data is encrypted on this device.</p>
         <Field label="PIN" error={err}>
-          <input className="input" type="password" inputMode="numeric" autoFocus autoComplete="off" value={unlockPin} onChange={(e) => { setUnlockPin(e.target.value); setErr('') }} />
+          <input className="input pin-input" type="password" inputMode="numeric" autoFocus autoComplete="off" value={unlockPin} onChange={(e) => { setUnlockPin(e.target.value); setErr('') }} />
         </Field>
         <button className="btn primary">Unlock</button>
         <button type="button" className="btn ghost" onClick={() => window.location.reload()}>Choose another profile</button>
@@ -68,9 +69,9 @@ export function ProfilePicker() {
 
   return (
     <div className="gate">
-      <div className="card stack">
-        <div className="row"><img src="./favicon.svg" width="36" height="36" alt="" /><h1>Daily Spend</h1></div>
-        <p className="ink2">Know what you can safely spend today. Everything stays on this device. Each person gets their own private profile.</p>
+      <div className="card glass stack reveal">
+        <div className="brandmark"><img src="./favicon.svg" width="44" height="44" alt="" /><h1>Daily Spend</h1></div>
+        <p className="tagline">Know what you can safely spend today. Everything stays on this device. Each person gets their own private profile.</p>
         {profiles.length > 0 && (
           <div className="stack" role="list" aria-label="Profiles">
             {profiles.map((p) => (
@@ -136,7 +137,7 @@ export function Setup() {
 
   if (mode === 'excel') {
     return (
-      <div className="gate"><div className="card stack" style={{ maxWidth: 760 }}>
+      <div className="gate"><div className="card glass stack reveal" style={{ maxWidth: 760 }}>
         <h1>Import your Excel tracker</h1>
         <ImportWizard />
         <button className="btn ghost" onClick={() => setMode('manual')}>← Set up by hand instead</button>
@@ -144,7 +145,7 @@ export function Setup() {
     )
   }
   return (
-    <div className="gate"><div className="card stack" style={{ maxWidth: 640 }}>
+    <div className="gate"><div className="card glass stack reveal" style={{ maxWidth: 640 }}>
       <div className="steps" aria-hidden="true">{[0, 1, 2].map((i) => <i key={i} className={i <= step ? 'on' : ''} />)}</div>
       <h1>Welcome{active ? `, ${active.name}` : ''}</h1>
       {step === 0 && (
@@ -201,7 +202,7 @@ export function NewCycle() {
   const prev = data.cycles.filter((c) => c.end <= start).sort((a, b) => b.start.localeCompare(a.start))[0]
 
   return (
-    <div className="gate"><div className="card stack" style={{ maxWidth: 640 }}>
+    <div className="gate"><div className="card glass stack reveal" style={{ maxWidth: 640 }}>
       <h1>Start your new pay cycle</h1>
       <p className="ink2"><b>{cycleLabel(start, end)}</b></p>
       {prev && <Alert kind="info">Last cycle ({prev.label ?? cycleLabel(prev.start, prev.end)}) closed with <b className="num">{formatMoney(suggestedOpeningCarry, { decimals: true })}</b>. It is filled in as the carry-over; change it if your bank balance differs.</Alert>}

@@ -109,13 +109,17 @@ export function MonthlyChart({ rows }: { rows: { label: string; spendable: numbe
   return (
     <div className="chart tall" role="img" aria-label="Spendable budget and actual spending for each cycle">
       <ResponsiveContainer>
-        <ComposedChart data={rows} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-          <CartesianGrid stroke="var(--line)" vertical={false} />
+        <ComposedChart data={rows} margin={{ top: 8, right: 8, left: -8, bottom: 0 }} barCategoryGap="28%">
+          <defs>
+            <linearGradient id="budGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--s3)" stopOpacity={0.95} /><stop offset="100%" stopColor="var(--s3)" stopOpacity={0.35} /></linearGradient>
+            <linearGradient id="spentGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--accent)" /><stop offset="100%" stopColor="var(--accent-2)" /></linearGradient>
+          </defs>
+          <CartesianGrid stroke="var(--line)" vertical={false} strokeDasharray="3 5" />
           <XAxis dataKey="label" tick={axis} tickLine={false} axisLine={false} interval="preserveStartEnd" />
           <YAxis tick={axis} tickFormatter={(v) => compact(Number(v))} tickLine={false} axisLine={false} width={48} />
-          <Tooltip cursor={{ fill: 'var(--surface-2)' }} formatter={(v) => formatMoney(Number(v))} contentStyle={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10 }} />
-          <Bar dataKey="spendable" name="Budget" fill="var(--s3)" radius={[4, 4, 0, 0]} maxBarSize={26} />
-          <Bar dataKey="spent" name="Spent" fill="var(--s1)" radius={[4, 4, 0, 0]} maxBarSize={26} />
+          <Tooltip cursor={{ fill: 'var(--surface-2)', radius: 8 }} formatter={(v) => formatMoney(Number(v))} contentStyle={{ background: 'var(--modal)', border: '1px solid var(--line)', borderRadius: 12 }} />
+          <Bar dataKey="spendable" name="Budget" fill="url(#budGrad)" radius={[8, 8, 8, 8]} maxBarSize={18} animationDuration={900} />
+          <Bar dataKey="spent" name="Spent" fill="url(#spentGrad)" radius={[8, 8, 8, 8]} maxBarSize={18} animationDuration={900} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>

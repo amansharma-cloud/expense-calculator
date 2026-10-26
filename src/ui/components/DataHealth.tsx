@@ -4,6 +4,7 @@ import { backupFolderName, chooseBackupFolder, clearBackupFolder, folderBackupSu
 import { DB_SCHEMA_VERSION, requestPersistence, storageStatus } from '../../db/storage'
 import { useStore } from '../../state/store'
 import { Alert, download, Icon, useToast } from './common'
+import { SectionHead } from './Section'
 
 const mb = (n: number | null) => (n === null ? '–' : n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`)
 
@@ -57,7 +58,7 @@ export function DataHealth() {
 
   return (
     <section className="card stack">
-      <h2>Data health</h2>
+      <SectionHead icon="gauge" color="var(--s3)" title="Data health" hint="Where your data lives and how safe it is." />
       <table className="explain"><tbody>
         <tr><td>Storage protected from automatic cleanup</td><td>{st?.persisted === null ? 'Unknown' : st?.persisted ? 'Yes' : 'Not guaranteed'}</td></tr>
         <tr><td>Space used by this site</td><td className="num">{mb(st?.usageBytes ?? null)}</td></tr>

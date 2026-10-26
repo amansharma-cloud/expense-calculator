@@ -6,7 +6,10 @@ import { formatMoney } from '../../engine/money'
 import { matchAllocation } from '../../engine/commitments'
 import type { Transaction } from '../../engine/types'
 import { useStore } from '../../state/store'
-import { Confirm, download, Icon, Modal, useToast } from '../components/common'
+import { CatIcon } from '../components/CatIcon'
+import { Confirm, download, Icon, Modal, Seg, useToast } from '../components/common'
+import { EmptyState } from '../components/Section'
+import { KpiTile } from '../components/Tiles'
 import { ExpenseForm } from '../components/ExpenseForm'
 
 type Period = 'cycle' | 'today' | 'week' | 'month' | 'all' | 'custom'
@@ -24,6 +27,7 @@ export function Transactions() {
   const [limit, setLimit] = useState(100)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [deleting, setDeleting] = useState<Transaction | null>(null)
+  const [open, setOpen] = useState<Transaction | null>(null)
 
   const cycles = useMemo(() => [...data.cycles].sort((a, b) => b.start.localeCompare(a.start)), [data.cycles])
   const range = useMemo((): [string, string] => {
@@ -60,27 +64,39 @@ export function Transactions() {
   const groups = new Map<string, Transaction[]>()
   for (const t of shown) groups.set(t.date, [...(groups.get(t.date) ?? []), t])
   const catSummary = outflowByCategory(filtered).slice(0, 5)
+  const dayLabel = (d: string) => {
+    if (d === today) return 'Today'
+    if (d === addDays(today, -1)) return 'Yesterday'
+    return new Date(d + 'T00:00:00').toLocaleDateString('en', { weekday: 'short', day: 'numeric', month: 'short' })
+  }
+  const linkFor = (t: Transaction) => {
+    if (t.type !== 'expense' || t.allocationId) return null
+    const cyc = data.cycles.find((c) => t.date >= c.start && t.date < c.end)
+    const m = cyc && matchAllocation(t.merchant, t.category, t.amountPaise, cyc.allocations)
+    return m?.confident ? m.allocation : null
+  }
 
   return (
     <div className="stack">
-      <div className="page-head">
-        <h1>Transactions</h1>
+      <div className="page-head reveal">
+        <div>
+          <h1>History</h1>
+          <span className="muted small">{filtered.length} entr{filtered.length === 1 ? 'y' : 'ies'} · {formatMoney(spent - back)} net spent</span>
+        </div>
         <div className="row">
           <button className="btn sm" disabled={!filtered.length} onClick={() => { download('transactions.csv', transactionsToCSV(filtered), 'text/csv;charset=utf-8'); toast('CSV downloaded') }}><Icon name="download" size={16} /> CSV</button>
           <button className="btn sm" disabled={!filtered.length} onClick={() => { download('daily-spend.xlsx', exportWorkbook({ ...data, transactions: filtered }), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); toast('Excel file downloaded') }}><Icon name="download" size={16} /> Excel</button>
         </div>
       </div>
 
-      <div className="card stack">
-        <div className="form-grid two">
-          <div className="field"><label className="lbl" htmlFor="q">Search</label><input id="q" className="input" type="search" placeholder="Description, category, note or amount" value={q} onChange={(e) => { setQ(e.target.value); setLimit(100) }} /></div>
-          <div className="field"><label className="lbl" htmlFor="per">Period</label>
-            <select id="per" className="input" value={period} onChange={(e) => { setPeriod(e.target.value as Period); setLimit(100) }}>
-              <option value="cycle">Salary cycle</option><option value="today">Today</option><option value="week">This week</option><option value="month">This month</option><option value="custom">Custom dates</option><option value="all">Everything</option>
-            </select>
-          </div>
+      <section className="card filters reveal" style={{ '--i': 1 } as React.CSSProperties} aria-label="Filters">
+        <div className="search">
+          <Icon name="list" size={18} />
+          <input id="q" className="input" type="search" aria-label="Search transactions" placeholder="Search description, category, note or amount" value={q} onChange={(e) => { setQ(e.target.value); setLimit(100) }} />
         </div>
-        <div className="form-grid two">
+        <Seg<Period> label="Period" value={period} onChange={(v) => { setPeriod(v); setLimit(100) }}
+          options={[['cycle', 'Cycle'], ['today', 'Today'], ['week', 'Week'], ['month', 'Month'], ['custom', 'Custom'], ['all', 'All']]} />
+        <div className="filter-row">
           {period === 'cycle' && (
             <div className="field"><label className="lbl" htmlFor="cyc">Cycle</label>
               <select id="cyc" className="input" value={cycleStart} onChange={(e) => setCycleStart(e.target.value)}>
@@ -99,51 +115,74 @@ export function Transactions() {
             <select id="ty" className="input" value={type} onChange={(e) => setType(e.target.value)}><option value="">All types</option><option value="expense">Expenses</option><option value="refund">Refunds</option><option value="income">Income</option><option value="transfer">Transfers</option></select>
           </div>
         </div>
-      </div>
+      </section>
 
       <div className="grid stats">
-        <div className="card stat"><div className="label">Entries</div><div className="value num">{filtered.length}</div></div>
-        <div className="card stat"><div className="label">Expenses</div><div className="value num">{formatMoney(spent)}</div></div>
-        <div className="card stat"><div className="label">Refunds</div><div className="value num">{formatMoney(back)}</div></div>
-        <div className="card stat"><div className="label">Net</div><div className="value num">{formatMoney(spent - back)}</div></div>
+        <KpiTile index={0} label="Entries" value={filtered.length} format={(n) => String(Math.round(n))} icon="list" color="var(--s1)" />
+        <KpiTile index={1} label="Expenses" value={spent} format={(n) => formatMoney(Math.round(n))} icon="bag" color="var(--s2)" />
+        <KpiTile index={2} label="Refunds" value={back} format={(n) => formatMoney(Math.round(n))} icon="down" color="var(--s6)" />
+        <KpiTile index={3} label="Net" value={spent - back} format={(n) => formatMoney(Math.round(n))} icon="trend" color="var(--s5)" />
       </div>
-      {catSummary.length > 0 && <div className="chips" aria-label="Top categories in this view">{catSummary.map((c) => <span className="chip" key={c.category}>{c.category} · {formatMoney(c.paise)}</span>)}</div>}
+      {catSummary.length > 0 && (
+        <div className="chips" aria-label="Top categories in this view">
+          {catSummary.map((c) => <span className="chip" key={c.category}>{c.category} · {formatMoney(c.paise)}</span>)}
+        </div>
+      )}
 
       {filtered.length === 0 ? (
-        <div className="card"><p className="muted">No transactions match. {data.transactions.length === 0 ? 'Add your first expense with the + button.' : 'Try a different period or clear the search.'}</p></div>
+        <section className="card"><EmptyState title="Nothing here" text={data.transactions.length === 0 ? 'Add your first expense with the + button and it will show up here.' : 'No transactions match these filters. Try another period or clear the search.'} /></section>
       ) : (
         <div className="stack">
           {[...groups.entries()].map(([date, list]) => (
-            <section className="card" key={date} aria-label={shortDate(date)}>
-              <div className="row between"><b>{shortDate(date)}{date === today ? ' · Today' : ''}</b><span className="muted small num">{formatMoney(list.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amountPaise, 0))}</span></div>
-              <ul className="list">
-                {list.map((t) => (
-                  <li key={t.id}>
-                    <div className="grow">
-                      <div className="title">{t.merchant || t.category}</div>
-                      <div className="small muted">
-                        {t.category} · {t.method}{t.type !== 'expense' ? ` · ${t.type}` : ''}{t.allocationId ? ' · set-aside' : ''}{t.source === 'import' ? ' · imported' : ''}
-                        {dupIds.has(t.id) && <span className="chip warn" style={{ marginLeft: 6 }}>possible duplicate</span>}
+            <section key={date} aria-label={dayLabel(date)}>
+              <div className="day-head"><b>{dayLabel(date)}</b><span className="num">{formatMoney(list.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amountPaise, 0))} spent</span></div>
+              <div className="card tx-list">
+                {list.map((t) => {
+                  const plus = t.type === 'refund' || t.type === 'income'
+                  return (
+                    <button key={t.id} className="tx-row" onClick={() => setOpen(t)} aria-label={`${t.merchant || t.category}, ${formatMoney(t.amountPaise)}. Open details`}>
+                      <CatIcon name={t.category || t.merchant} />
+                      <div className="grow">
+                        <div className="title">{t.merchant || t.category}</div>
+                        <div className="sub">{t.category} · {t.method}{t.type !== 'expense' ? ` · ${t.type}` : ''}{t.allocationId ? ' · set-aside' : ''}{t.source === 'import' ? ' · imported' : ''}</div>
+                        {(dupIds.has(t.id) || linkFor(t)) && (
+                          <div className="tx-tags">
+                            {dupIds.has(t.id) && <span className="chip warn small">possible duplicate</span>}
+                            {linkFor(t) && <span className="chip small">may be {linkFor(t)!.name}</span>}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    <span className={`amt num ${t.type === 'refund' || t.type === 'income' ? 'in' : ''}`}>{t.type === 'refund' || t.type === 'income' ? '+' : ''}{formatMoney(t.amountPaise)}</span>
-                    {(() => {
-                      if (t.type !== 'expense' || t.allocationId) return null
-                      const cyc = data.cycles.find((c) => t.date >= c.start && t.date < c.end)
-                      const m = cyc && matchAllocation(t.merchant, t.category, t.amountPaise, cyc.allocations)
-                      return m?.confident ? <button className="btn sm" title="Count this as the set-aside payment instead of spending" onClick={async () => { await updateTx({ ...t, allocationId: m.allocation.id }); toast(`Counted as ${m.allocation.name}, not spending`) }}>Count as {m.allocation.name}</button> : null
-                    })()}
-                    <button className="btn ghost sm" aria-label={`Edit ${t.merchant || t.category}`} onClick={() => setEditing(t)}><Icon name="edit" size={16} /></button>
-                    <button className="btn ghost sm" aria-label={`Delete ${t.merchant || t.category}`} onClick={() => setDeleting(t)}><Icon name="trash" size={16} /></button>
-                  </li>
-                ))}
-              </ul>
+                      <span className={`amt num ${plus ? 'in' : ''}`}>{plus ? '+' : '-'}{formatMoney(t.amountPaise)}</span>
+                    </button>
+                  )
+                })}
+              </div>
             </section>
           ))}
           {filtered.length > limit && <button className="btn" onClick={() => setLimit(limit + 100)}>Show more ({filtered.length - limit} left)</button>}
         </div>
       )}
 
+      {open && (
+        <Modal title={open.merchant || open.category} onClose={() => setOpen(null)}>
+          <dl className="kv">
+            <dt>Amount</dt><dd className="num">{open.type === 'refund' || open.type === 'income' ? '+' : '-'}{formatMoney(open.amountPaise)}</dd>
+            <dt>Type</dt><dd>{open.type}</dd>
+            <dt>Category</dt><dd>{open.category}</dd>
+            <dt>When</dt><dd>{shortDate(open.date)} · {open.time}</dd>
+            <dt>Paid with</dt><dd>{open.method}</dd>
+            {open.allocationId && (<><dt>Counts as</dt><dd>a set-aside payment, not spending</dd></>)}
+            {open.note && (<><dt>Note</dt><dd>{open.note}</dd></>)}
+          </dl>
+          <div className="sheet-actions">
+            {linkFor(open) && (
+              <button className="btn" onClick={async () => { const a = linkFor(open)!; await updateTx({ ...open, allocationId: a.id }); setOpen(null); toast(`Counted as ${a.name}, not spending`) }}>Count as {linkFor(open)!.name} (set-aside)</button>
+            )}
+            <button className="btn primary" onClick={() => { setEditing(open); setOpen(null) }}><Icon name="edit" size={16} /> Edit</button>
+            <button className="btn danger" onClick={() => { setDeleting(open); setOpen(null) }}><Icon name="trash" size={16} /> Delete</button>
+          </div>
+        </Modal>
+      )}
       {editing && (
         <Modal title="Edit transaction" onClose={() => setEditing(null)}>
           <ExpenseForm initial={editing} onCancel={() => setEditing(null)} onSaved={async (d) => { await updateTx({ ...editing, ...d }); setEditing(null); toast('Saved') }} />

@@ -8,6 +8,7 @@ import { useStore } from '../../state/store'
 import { AllocationEditor, ExpectedBillsEditor, MoneyInput } from '../components/AllocationEditor'
 import { PayFields } from '../components/PayFields'
 import { Alert, Field, Modal, useToast } from '../components/common'
+import { SectionHead } from '../components/Section'
 
 export function Budget() {
   const { plan, savePlan, cycle, budget, updateCycle, today, convertFixed, moveBack, dismissMoved } = useStore()
@@ -25,14 +26,14 @@ export function Budget() {
 
   return (
     <div className="stack">
-      <div className="page-head"><h1>Budget &amp; Allocations</h1></div>
+      <div className="page-head reveal"><div><h1>Budget &amp; Allocations</h1><span className="muted small">What is set aside, what varies, and how the daily limit is built.</span></div></div>
       <Alert kind="info">
         Changes apply to the <b>current cycle and future cycles</b>. Past cycles keep the numbers they were created with, so history never changes.
         {cycle && <> Current cycle: {cycleLabel(cycle.start, cycle.end)}.</>}
       </Alert>
 
       <section className="card stack">
-        <h2>Pay &amp; currency</h2>
+        <SectionHead icon="cash" color="var(--s6)" title="Pay &amp; currency" hint="How often you are paid and what the amounts are written in." />
         <Field label="Currency" hint="Changing the currency only changes how amounts are written. Existing numbers are not converted.">
           <select className="input" value={draft.currency ?? 'INR'} onChange={(e) => setDraft({ ...draft, currency: e.target.value })}>
             {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.name} ({c.symbol.trim()})</option>)}
@@ -56,7 +57,7 @@ export function Budget() {
       </section>
 
       <section className="card stack">
-        <div><h2>Set aside every cycle</h2><p className="hint">Rent, EMIs, subscriptions, SIPs, savings, emergency fund, goals. These come out of your income first and are never offered as daily spending. To record a payment, use <b>Paid</b> on the dashboard (or just add the expense: it is recognised). Use <b>More…</b> on an item only if its amount changes every month.{payOf(draft).kind !== 'monthly' ? ' Give a monthly bill a due day and it is set aside only in the pay period that contains that day.' : ''}</p></div>
+        <SectionHead icon="home" color="var(--s7)" title="Set aside every cycle" hint={<>Rent, EMIs, subscriptions, SIPs, savings, emergency fund, goals. These come out of your income first and are never offered as daily spending. To record a payment, use <b>Paid</b> on the dashboard (or just add the expense: it is recognised). Use <b>More…</b> on an item only if its amount changes every month.{payOf(draft).kind !== 'monthly' ? ' Give a monthly bill a due day and it is set aside only in the pay period that contains that day.' : ''}</>} />
         <AllocationEditor items={draft.allocations} onChange={(allocations) => setDraft({ ...draft, allocations })}
           onConvert={dirty ? undefined : (a, to) => setMove({ a, to })} />
         {dirty && <p className="hint">Save your changes to see the “More…” options (varies monthly / treat as spending) for each item.</p>}
@@ -64,7 +65,7 @@ export function Budget() {
 
       {(plan.moved?.length ?? 0) > 0 && (
         <section className="card stack">
-          <div><h2>Moved out of set-asides</h2><p className="hint">These used to be set aside every cycle. Move one back to put it as it was (including its past cycles and payments).</p></div>
+          <SectionHead icon="swap" color="var(--s4)" title="Moved out of set-asides" hint="These used to be set aside every cycle. Move one back to put it as it was (including its past cycles and payments)." />
           <ul className="list">
             {plan.moved!.map((m) => (
               <li key={m.id}>
@@ -78,12 +79,12 @@ export function Budget() {
       )}
 
       <section className="card stack">
-        <div><h2>Expected bills (amount varies)</h2><p className="hint">Electricity, mobile recharge… bills that come every cycle but cost something different each time. The usual amount is <b>reserved</b> from your daily limit until you mark the bill paid and enter the real amount; the difference then goes into your spending.</p></div>
+        <SectionHead icon="bolt" color="var(--s4)" title="Expected bills (amount varies)" hint={<>Electricity, mobile recharge… bills that come every cycle but cost something different each time. The usual amount is <b>reserved</b> from your daily limit until you mark the bill paid and enter the real amount; the difference then goes into your spending.</>} />
         <ExpectedBillsEditor items={draft.expectedBills ?? []} onChange={(expectedBills) => setDraft({ ...draft, expectedBills })} />
       </section>
 
       <section className="card">
-        <h2>What this means</h2>
+        <SectionHead icon="gauge" color="var(--s1)" title="What this means" hint="Your spendable budget for the cycle." />
         <table className="explain"><tbody>
           <tr><td className="sign">+</td><td>Take-home salary &amp; credits</td><td className="num">{formatMoney(draft.takeHomePaise + (cycle?.extraCreditsPaise ?? 0))}</td></tr>
           <tr><td className="sign">+</td><td>Released from carry-over</td><td className="num">{formatMoney(Math.min(draft.releasedCarryPaise, cycle?.openingCarryPaise ?? draft.releasedCarryPaise))}</td></tr>
@@ -95,7 +96,7 @@ export function Budget() {
       </section>
 
       <section className="card stack">
-        <h2>Spending categories</h2>
+        <SectionHead icon="bag" color="var(--s5)" title="Spending categories" hint="The choices offered when you add an expense." />
         <div className="chips">{draft.categories.map((c) => (
           <span className="chip" key={c}>{c}<button className="btn ghost sm" style={{ minHeight: 0, padding: '0 4px' }} aria-label={`Remove category ${c}`} onClick={() => setDraft({ ...draft, categories: draft.categories.filter((x) => x !== c) })}>✕</button></span>
         ))}</div>
@@ -124,9 +125,12 @@ export function Budget() {
         </Modal>
       )}
 
-      <div className="row" style={{ position: 'sticky', bottom: 80, justifyContent: 'flex-end' }}>
+      <div className="savebar glass" role="region" aria-label="Save changes">
+        <span className="small muted">{dirty ? 'You have unsaved changes' : 'All changes saved'}</span>
+        <div className="row">
         <button className="btn" disabled={!dirty} onClick={() => setDraft(plan)}>Discard</button>
         <button className="btn primary" disabled={!dirty || bad} onClick={async () => { await savePlan({ ...draft, allocations: draft.allocations.map((a) => ({ ...a, name: a.name.trim() })) }); toast('Budget saved') }}>Save changes</button>
+      </div>
       </div>
     </div>
   )

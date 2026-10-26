@@ -6,6 +6,8 @@ import { formatMoney } from '../../engine/money'
 import { sum } from '../../engine/money'
 import { useStore } from '../../state/store'
 import { download, Icon } from '../components/common'
+import { EmptyState, SectionHead } from '../components/Section'
+import { KpiTile } from '../components/Tiles'
 import { CategoryBars, Legend, MonthlyChart } from '../components/charts'
 
 export function Reports() {
@@ -34,11 +36,14 @@ export function Reports() {
 
   return (
     <div className="stack">
-      <div className="page-head">
-        <h1>Reports</h1>
+      <div className="page-head reveal">
+        <div>
+          <h1>Reports</h1>
+          <span className="muted small">{c.label ?? 'Pay cycle'} · {cycleLabel(c.start, c.end)}</span>
+        </div>
         <div className="row">
           <label className="sr" htmlFor="rc">Cycle</label>
-          <select id="rc" className="input" style={{ width: 'auto' }} value={c.start} onChange={(e) => setSel(e.target.value)}>
+          <select id="rc" className="input" style={{ width: 'auto', maxWidth: '100%' }} value={c.start} onChange={(e) => setSel(e.target.value)}>
             {cycles.map((x) => <option key={x.start} value={x.start}>{x.label ? x.label + ' · ' : ''}{cycleLabel(x.start, x.end)}</option>)}
           </select>
           <button className="btn sm" onClick={() => download('daily-spend-report.xlsx', exportWorkbook(data), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}><Icon name="download" size={16} /> Excel</button>
@@ -46,42 +51,41 @@ export function Reports() {
       </div>
 
       <div className="grid stats">
-        <div className="card stat"><div className="label">Money in</div><div className="value num">{formatMoney(row.credits)}</div><div className="sub">salary &amp; credits</div></div>
-        <div className="card stat"><div className="label">Set aside</div><div className="value num">{formatMoney(row.allocated)}</div><div className="sub">bills, investments, savings</div></div>
-        <div className="card stat"><div className="label">Spent</div><div className="value num">{formatMoney(row.spent)}</div><div className="sub">of {formatMoney(row.spendable)} spendable</div></div>
-        <div className="card stat"><div className="label">Closing balance</div><div className="value num">{formatMoney(row.closing)}</div><div className="sub">opened with {formatMoney(c.openingCarryPaise)}</div></div>
+        <KpiTile index={0} label="Money in" value={row.credits} format={(n) => formatMoney(Math.round(n))} icon="down" color="var(--s6)" sub="salary & credits" />
+        <KpiTile index={1} label="Set aside" value={row.allocated} format={(n) => formatMoney(Math.round(n))} icon="home" color="var(--s7)" sub="bills, investments, savings" />
+        <KpiTile index={2} label="Spent" value={row.spent} format={(n) => formatMoney(Math.round(n))} icon="bag" color="var(--s2)" sub={`of ${formatMoney(row.spendable)} spendable`} />
+        <KpiTile index={3} label="Closing balance" value={row.closing} format={(n) => formatMoney(Math.round(n))} icon="cash" color="var(--s3)" sub={`opened with ${formatMoney(c.openingCarryPaise)}`} />
       </div>
 
       <div className="grid cols-2">
-        <section className="card">
-          <h2>All outflow by category</h2>
-          <p className="hint">Includes rent, EMIs and investments paid in this cycle.</p>
-          <CategoryBars rows={outflow} max={12} />
+        <section className="card reveal" style={{ '--i': 5 } as React.CSSProperties}>
+          <SectionHead icon="bag" color="var(--s2)" title="All outflow by category" hint="Includes rent, EMIs and investments paid in this cycle." />
+          {outflow.length === 0 ? <EmptyState title="No outflow yet" text="Payments recorded in this cycle appear here." /> : <CategoryBars rows={outflow} max={12} />}
         </section>
-        <section className="card">
-          <h2>Budget vs actual</h2>
-          <Legend items={[['var(--s3)', 'Spendable budget'], ['var(--s1)', 'Spent']]} />
+        <section className="card reveal" style={{ '--i': 6 } as React.CSSProperties}>
+          <SectionHead icon="chart" color="var(--s1)" title="Budget vs actual" hint="Spendable budget and what was spent, cycle by cycle." />
+          <Legend items={[['var(--s3)', 'Spendable budget'], ['var(--accent)', 'Spent']]} />
           <MonthlyChart rows={recent.map((r) => ({ label: r.label, spendable: Math.max(0, r.spendable), spent: Math.max(0, r.spent) }))} />
         </section>
       </div>
 
-      <section className="card">
-        <h2>Cycle by cycle</h2>
-        <div className="scroll-x">
-          <table className="t">
-            <thead><tr><th>Cycle</th><th className="r">Opening</th><th className="r">In</th><th className="r">Set aside</th><th className="r">Spent</th><th className="r">Closing</th></tr></thead>
-            <tbody>
-              {[...rows].reverse().map((r) => (
-                <tr key={r.cy.start}>
-                  <td>{r.cy.label ?? cycleLabel(r.cy.start, r.cy.end)}</td>
-                  <td className="r num">{formatMoney(r.cy.openingCarryPaise)}</td><td className="r num">{formatMoney(r.credits)}</td>
-                  <td className="r num">{formatMoney(r.allocated)}</td><td className="r num">{formatMoney(r.spent)}</td><td className="r num"><b>{formatMoney(r.closing)}</b></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="hint" style={{ marginTop: 8 }}>Closing balance = opening + money in − set aside − spending. Transfers are ignored; refunds reduce spending.</p>
+      <section className="card reveal" style={{ '--i': 7 } as React.CSSProperties}>
+        <SectionHead icon="calendar" color="var(--s7)" title="Cycle by cycle" hint="Closing balance = opening + money in − set aside − spending. Transfers are ignored; refunds reduce spending." />
+        <table className="t cards">
+          <thead><tr><th>Cycle</th><th className="r">Opening</th><th className="r">In</th><th className="r">Set aside</th><th className="r">Spent</th><th className="r">Closing</th></tr></thead>
+          <tbody>
+            {[...rows].reverse().map((r) => (
+              <tr key={r.cy.start}>
+                <td data-label="Cycle">{r.cy.label ?? cycleLabel(r.cy.start, r.cy.end)}</td>
+                <td className="r num" data-label="Opening">{formatMoney(r.cy.openingCarryPaise)}</td>
+                <td className="r num" data-label="Money in">{formatMoney(r.credits)}</td>
+                <td className="r num" data-label="Set aside">{formatMoney(r.allocated)}</td>
+                <td className="r num" data-label="Spent">{formatMoney(r.spent)}</td>
+                <td className="r num" data-label="Closing"><b>{formatMoney(r.closing)}</b></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
     </div>
   )

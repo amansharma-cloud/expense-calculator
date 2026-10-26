@@ -3,6 +3,7 @@ import { WrongPinError } from '../../db/storage'
 import type { RemoteProfile } from '../../sync/types'
 import { useStore } from '../../state/store'
 import { Alert, Confirm, Field, Modal, useToast } from './common'
+import { SectionHead } from './Section'
 import type { SnapshotInfo } from '../../sync/types'
 
 type Check = { available: boolean; needsLogin?: boolean; email?: string } | null
@@ -38,7 +39,7 @@ export function SyncSettings() {
 
   return (
     <section className="card stack">
-      <h2>Account &amp; cloud sync</h2>
+      <SectionHead icon="swap" color="var(--accent-2)" title="Account &amp; cloud sync" hint="Optional encrypted copy so your data follows you to other devices." />
       {check === null && <p className="muted">Checking…</p>}
       {check && !check.available && !enabled && (
         <p className="ink2">Cloud sync is not set up on this site. Everything keeps working locally on this device. (Site owners: see <code>docs/SYNC-SETUP.md</code>.)</p>
