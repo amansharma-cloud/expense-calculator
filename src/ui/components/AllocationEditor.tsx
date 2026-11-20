@@ -85,7 +85,7 @@ export function AllocationEditor({ items, onChange, onConvert }: {
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 /** Mobile recharges differ: Jio is every 84 days, Airtel is monthly (or switch it to 84 days). */
 export const DEFAULT_RECHARGES: { name: string; everyDays?: number }[] = [{ name: 'Jio recharge', everyDays: 84 }, { name: 'Airtel recharge' }]
-export const DEFAULT_SUBSCRIPTIONS = ['Netflix', 'Amazon Prime', 'Hotstar', 'Sony Liv', 'YouTube', 'KodeKloud']
+export const DEFAULT_SUBSCRIPTIONS = ['Netflix', 'Amazon Prime', 'Hotstar', 'Sony Liv', 'YouTube', 'KodeKloud', 'Claude']
 
 /** Expected bills; with `subscriptions` it edits the subscription entries instead (the two lists share one array). */
 export function ExpectedBillsEditor({ all, onChange, subscriptions = false }: { all: ExpectedBill[]; onChange: (b: ExpectedBill[]) => void; subscriptions?: boolean }) {

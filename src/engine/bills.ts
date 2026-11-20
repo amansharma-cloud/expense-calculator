@@ -19,6 +19,13 @@ export function lastPaidDate(b: ExpectedBill, txs: Transaction[]): ISODate | nul
   return best
 }
 
+/** When an every-N-days bill is next due (null if it has no start date or is not an every-N-days bill). */
+export function nextDueDate(b: ExpectedBill, txs: Transaction[]): ISODate | null {
+  if (!b.everyDays || b.everyDays <= 0) return null
+  const last = lastPaidDate(b, txs)
+  return last ? addDays(last, Math.round(b.everyDays)) : null
+}
+
 /** The planned (reserved) items that the expected bills create for one cycle. Ids are stable, so this never duplicates. */
 export function billsForCycle(bills: ExpectedBill[] | undefined, start: ISODate, end: ISODate, pay: PayCycle, txs: Transaction[] = []): PlannedItem[] {
   const out: PlannedItem[] = []

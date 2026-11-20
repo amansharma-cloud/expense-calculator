@@ -20,6 +20,7 @@ const RULES: { concept: string; icon: CatIcon; color: string; re: RegExp; image?
   { concept: 'prime', icon: 'play', color: 'var(--s3)', image: 'prime.png', re: /prime|amazon video/ },
   { concept: 'hotstar', icon: 'play', color: 'var(--s3)', image: 'hotstar.png', re: /hotstar|disney/ },
   { concept: 'sonyliv', icon: 'play', color: 'var(--s3)', image: 'sonyliv.png', re: /sony ?liv/ },
+  { concept: 'claude', icon: 'play', color: 'var(--s3)', image: 'claude.png', re: /claude|anthropic/ },
   { concept: 'youtube', icon: 'play', color: 'var(--s3)', image: 'youtube.png', re: /youtube/ },
   { concept: 'kodekloud', icon: 'play', color: 'var(--s3)', image: 'kodekloud.png', re: /kode ?kloud/ },
   { concept: 'jupiter', icon: 'trend', color: 'var(--s6)', image: 'jupiter.png', re: /jupiter/ },

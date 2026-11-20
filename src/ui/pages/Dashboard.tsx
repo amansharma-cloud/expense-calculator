@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { cycleTransactions, dailySeries, spendByCategory } from '../../engine/budget'
 import { isValidDate, shortDate } from '../../engine/dates'
 import { compareWithPrevious, smartTips, upcomingItems } from '../../engine/insights'
+import { nextDueDate } from '../../engine/bills'
 import { formatMoney, parseAmount, validateAmount } from '../../engine/money'
 import type { Allocation, PayMethod, PlannedItem, TxType } from '../../engine/types'
 import { useStore } from '../../state/store'
@@ -46,6 +47,10 @@ export function Dashboard({ onAdd }: { onAdd: (type?: TxType) => void }) {
   })
   const subsPaid = subs.reduce((n, r) => n + r.paidPaise, 0)
   const subsLeft = subs.reduce((n, r) => n + (r.item && !r.item.done ? r.bill.estimatePaise : 0), 0)
+  const later = (data.plan?.expectedBills ?? []).flatMap((b) => {
+    const d = nextDueDate(b, data.transactions)
+    return d && d >= cycle.end ? [{ b, d }] : []
+  }).sort((x, y) => x.d.localeCompare(y.d))
   const upcoming = upcomingItems(cycle, data.planned, b.allocationPaid, today)
   // bills grouped by due date (soonest first), so a day with several payments is one row
   const billGroups = Object.values(upcoming.reduce<Record<string, { date: string; daysUntil: number; items: typeof upcoming; total: number }>>((acc, u) => {
@@ -110,7 +115,7 @@ export function Dashboard({ onAdd }: { onAdd: (type?: TxType) => void }) {
             </div>
             <button className="btn sm" onClick={() => setPlanning(true)}><Icon name="plus" size={16} /> Add</button>
           </div>
-          {upcoming.length === 0 ? <p className="muted" style={{ marginTop: 10 }}>Nothing due. Bills with a due day, expected bills and planned purchases show up here.</p> : (
+          {upcoming.length === 0 ? <p className="muted" style={{ marginTop: 10 }}>Nothing due this cycle. Bills with a due day, expected bills and planned purchases show up here.</p> : (
             <div className="bill-groups">
               {(showAllBills ? billGroups : billGroups.slice(0, 3)).map((g, gi) => {
                 const chip = dueChip(g.daysUntil)
@@ -142,6 +147,20 @@ export function Dashboard({ onAdd }: { onAdd: (type?: TxType) => void }) {
                 )
               })}
               {billGroups.length > 3 && <button className="btn ghost sm" style={{ alignSelf: 'flex-start' }} onClick={() => setShowAllBills(!showAllBills)}>{showAllBills ? 'Show fewer' : `Show ${billGroups.length - 3} more date${billGroups.length - 3 === 1 ? '' : 's'}`}</button>}
+            </div>
+          )}
+          {later.length > 0 && (
+            <div className="later">
+              <h3 className="small muted">Coming up in a later pay period</h3>
+              <ul>
+                {later.map(({ b, d }) => (
+                  <li key={b.id}>
+                    <CatIcon name={b.name} size={30} />
+                    <span className="grow"><span className="nm">{b.name}</span><span className="muted small"> · {new Date(d + 'T00:00:00').toLocaleDateString('en', { day: 'numeric', month: 'short', year: 'numeric' })}</span></span>
+                    <b className="num">{formatMoney(b.estimatePaise)}</b>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </section>
