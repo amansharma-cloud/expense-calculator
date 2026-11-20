@@ -83,6 +83,8 @@ export function AllocationEditor({ items, onChange, onConvert }: {
 
 /** Bills that come every cycle with a changing amount. The estimate is reserved until you pay the real amount. */
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+/** Mobile recharges differ: Jio is every 84 days, Airtel is monthly (or switch it to 84 days). */
+export const DEFAULT_RECHARGES: { name: string; everyDays?: number }[] = [{ name: 'Jio recharge', everyDays: 84 }, { name: 'Airtel recharge' }]
 export const DEFAULT_SUBSCRIPTIONS = ['Netflix', 'Amazon Prime', 'Hotstar', 'Sony Liv', 'YouTube', 'KodeKloud']
 
 /** Expected bills; with `subscriptions` it edits the subscription entries instead (the two lists share one array). */
@@ -92,6 +94,7 @@ export function ExpectedBillsEditor({ all, onChange, subscriptions = false }: { 
   const change = (next: ExpectedBill[]) => onChange([...all.filter((b) => !mine(b)), ...next])
   const blank = (name = ''): ExpectedBill => ({ id: crypto.randomUUID(), name, estimatePaise: 0, category: name, ...(subscriptions ? { subscription: true } : {}) })
   const missing = subscriptions ? DEFAULT_SUBSCRIPTIONS.filter((n) => !items.some((b) => b.name.trim().toLowerCase() === n.toLowerCase())) : []
+  const quick = subscriptions ? [] : DEFAULT_RECHARGES.filter((r) => !items.some((b) => b.name.trim().toLowerCase() === r.name.toLowerCase()))
   const update = (id: string, patch: Partial<ExpectedBill>) => change(items.map((b) => (b.id === id ? { ...b, ...patch } : b)))
   return (
     <div className="stack">
@@ -112,7 +115,9 @@ export function ExpectedBillsEditor({ all, onChange, subscriptions = false }: { 
               </div>
               <div className="field c-due">
                 <span className="lbl m-only">Due day</span>
-                <DayPicker label={`Due day for ${b.name || 'bill'}`} value={b.dueDay} optional emptyText="Any day" onChange={(d) => update(b.id, { dueDay: d })} />
+                {b.everyDays
+                  ? <span className="muted small">Every {b.everyDays} days</span>
+                  : <DayPicker label={`Due day for ${b.name || 'bill'}`} value={b.dueDay} optional emptyText="Any day" onChange={(d) => update(b.id, { dueDay: d })} />}
               </div>
               {subscriptions && (
                 <div className="field c-bill">
@@ -128,6 +133,22 @@ export function ExpectedBillsEditor({ all, onChange, subscriptions = false }: { 
                   {b.renewMonth && <span className="hint">The amount above is the full yearly price. It is reserved only in the pay period that contains the renewal date.</span>}
                 </div>
               )}
+              {!subscriptions && (
+                <div className="field c-bill">
+                  <span className="lbl">Repeats</span>
+                  <div className="row wrap">
+                    <Seg label={`How often ${b.name || 'this bill'} comes`} value={b.everyDays ? 'days' : 'monthly'} options={[['monthly', 'Every month'], ['days', 'Every N days']]} onChange={(v) => update(b.id, v === 'days' ? { everyDays: b.everyDays ?? 84 } : { everyDays: undefined })} />
+                    {b.everyDays && (
+                      <>
+                        <input className="input days-pick" type="number" inputMode="numeric" min={7} max={365} aria-label={`Days between ${b.name || 'bill'} payments`} value={b.everyDays} onChange={(e) => update(b.id, { everyDays: Math.max(7, Math.min(365, Math.round(Number(e.target.value)) || 84)) })} />
+                        <label className="small muted" htmlFor={'bl' + b.id}>last paid on</label>
+                        <input id={'bl' + b.id} className="input date-pick" type="date" value={b.lastDone ?? ''} onChange={(e) => update(b.id, { lastDone: e.target.value || undefined })} />
+                      </>
+                    )}
+                  </div>
+                  {b.everyDays && <span className="hint">{b.lastDone ? 'Reserved in the pay period when it falls due: ' : 'Enter when you last paid so the next one can be reserved. '}each time you tap Paid, the next date moves on by {b.everyDays} days.</span>}
+                </div>
+              )}
               <div className="c-act">
                 <button type="button" className="btn ghost danger" aria-label={`Remove ${b.name}`} onClick={() => change(items.filter((x) => x.id !== b.id))}><Icon name="trash" size={18} /></button>
               </div>
@@ -138,6 +159,11 @@ export function ExpectedBillsEditor({ all, onChange, subscriptions = false }: { 
       {missing.length > 0 && (
         <div className="chip-row" role="group" aria-label="Add a common subscription">
           {missing.map((n) => <button key={n} type="button" className="chip-btn" onClick={() => change([...items, blank(n)])}><CatIcon name={n} size={22} /> {n}</button>)}
+        </div>
+      )}
+      {quick.length > 0 && (
+        <div className="chip-row" role="group" aria-label="Add a common bill">
+          {quick.map((r) => <button key={r.name} type="button" className="chip-btn" onClick={() => change([...items, { ...blank(r.name), ...(r.everyDays ? { everyDays: r.everyDays } : {}) }])}><CatIcon name={r.name} size={22} /> {r.name}{r.everyDays ? ` · every ${r.everyDays} days` : ' · monthly'}</button>)}
         </div>
       )}
       <div>

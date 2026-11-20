@@ -412,7 +412,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // keep this cycle's reserved estimates in step with the expected-bills list
     let planned = data.planned
     if (cycle) {
-      const wanted = billsForCycle(p.expectedBills, cycle.start, cycle.end, payOf(p))
+      const wanted = billsForCycle(p.expectedBills, cycle.start, cycle.end, payOf(p), data.transactions)
       const oldIds = new Set((data.plan?.expectedBills ?? []).map((b) => b.id))
       const sfx = `-${cycle.start}`
       const isMine = (id: string) => id.startsWith('exp-') && id.endsWith(sfx)
@@ -446,7 +446,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await s().put('plan', 'plan', pl)
     // expected bills (electricity, recharge…) are reserved for the new cycle as estimates
     const known = new Set(data.planned.map((p) => p.id))
-    const reserved = billsForCycle(pl.expectedBills, start, end, pay).filter((p) => !known.has(p.id))
+    const reserved = billsForCycle(pl.expectedBills, start, end, pay, data.transactions).filter((p) => !known.has(p.id))
     if (reserved.length) await s().putMany('planned', reserved.map((p) => ({ id: p.id, value: p })))
     setData((d) => ({ ...d, plan: pl, cycles: [...d.cycles.filter((x) => x.start !== c.start), c], planned: [...d.planned, ...reserved] }))
   }

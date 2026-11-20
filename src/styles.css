@@ -605,3 +605,6 @@ html[data-motion="off"] .skeleton { animation: none; }
 @media (max-width: 480px) { .tour-btn { right: 16px; bottom: 148px; } }
 @media (min-width: 860px) { .tour-btn { right: 39px; bottom: 98px; } }
 @media (max-width: 480px) { .tour-btn::after { display: none; } }
+
+.days-pick { width: 84px; }
+.date-pick { width: auto; min-width: 160px; }

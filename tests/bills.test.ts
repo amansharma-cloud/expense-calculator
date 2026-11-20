@@ -197,3 +197,21 @@ describe('yearly subscriptions', () => {
     expect(billsForCycle([{ ...yearly[0], dueDay: 31, renewMonth: 2 }], '2027-02-25', '2027-03-25', pay).map((p) => p.dueDate)).toEqual(['2027-02-28'])
   })
 })
+
+describe('every-N-days bills (84-day recharge)', () => {
+  const jio: ExpectedBill = { id: 'j1', name: 'Jio recharge', estimatePaise: 89900, category: 'Jio recharge', everyDays: 84, lastDone: '2026-11-20' }
+  it('is reserved only in the pay period that contains last paid + 84 days', () => {
+    expect(billsForCycle([jio], '2026-10-25', '2026-11-25', monthly)).toHaveLength(0)
+    expect(billsForCycle([jio], '2026-12-25', '2027-01-25', monthly)).toHaveLength(0)
+    expect(billsForCycle([jio], '2027-01-25', '2027-02-25', monthly)[0]).toMatchObject({ dueDate: '2027-02-12', amountPaise: 89900 })
+  })
+  it('an overdue one is reserved straight away, and with no date to count from it waits', () => {
+    expect(billsForCycle([{ ...jio, lastDone: '2026-07-01' }], '2026-10-25', '2026-11-25', monthly)[0].dueDate).toBe('2026-10-25')
+    expect(billsForCycle([{ ...jio, lastDone: undefined }], '2026-10-25', '2026-11-25', monthly)).toHaveLength(0)
+  })
+  it('paying it moves the next date on from the payment date', () => {
+    const paid: Transaction = { id: 'p', date: '2027-02-14', time: '10:00', amountPaise: 89900, type: 'expense', category: 'Jio recharge', merchant: 'Jio recharge', method: 'upi', note: '', plannedId: 'exp-j1-2027-01-25', source: 'manual', createdAt: '' }
+    expect(billsForCycle([jio], '2027-01-25', '2027-02-25', monthly, [paid])).toHaveLength(0) // next is 2027-05-09
+    expect(billsForCycle([jio], '2027-04-25', '2027-05-25', monthly, [paid])[0].dueDate).toBe('2027-05-09')
+  })
+})

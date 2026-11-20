@@ -11,13 +11,27 @@ export function dateForDay(day: number, start: ISODate, end: ISODate): ISODate |
   return null
 }
 
+/** The date an every-N-days bill was last paid: the newest payment made through it, or the date you entered. */
+export function lastPaidDate(b: ExpectedBill, txs: Transaction[]): ISODate | null {
+  const prefix = `exp-${b.id}-`
+  let best: ISODate | null = b.lastDone ?? null
+  for (const t of txs) if (t.plannedId?.startsWith(prefix) && t.type === 'expense' && (!best || t.date > best)) best = t.date
+  return best
+}
+
 /** The planned (reserved) items that the expected bills create for one cycle. Ids are stable, so this never duplicates. */
-export function billsForCycle(bills: ExpectedBill[] | undefined, start: ISODate, end: ISODate, pay: PayCycle): PlannedItem[] {
+export function billsForCycle(bills: ExpectedBill[] | undefined, start: ISODate, end: ISODate, pay: PayCycle, txs: Transaction[] = []): PlannedItem[] {
   const out: PlannedItem[] = []
   const last = addDays(end, -1)
   for (const b of bills ?? []) {
     let due: ISODate | null = last
-    if (b.renewMonth) {
+    if (b.everyDays && b.everyDays > 0) {
+      const anchor = lastPaidDate(b, txs)
+      if (!anchor) continue // nothing to count from yet
+      const next = addDays(anchor, Math.round(b.everyDays))
+      if (next >= end) continue // not due in this pay period
+      due = next < start ? start : next // overdue ones are reserved right away
+    } else if (b.renewMonth) {
       due = null
       for (let d = start; d < end; d = addDays(d, 1)) {
         const [y, m, dd] = d.split('-').map(Number)

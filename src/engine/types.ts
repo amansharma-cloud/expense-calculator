@@ -88,6 +88,10 @@ export interface ExpectedBill {
   subscription?: boolean
   /** Yearly bills are reserved only in the pay period that contains this month (1-12) and `dueDay` (default the 1st). Missing = every month. */
   renewMonth?: number
+  /** Repeats every N days instead of every month (an 84-day mobile recharge). The next one is due N days after the last payment. */
+  everyDays?: number
+  /** When it was last paid, for the very first reminder; later payments are picked up from your history automatically. */
+  lastDone?: ISODate
 }
 
 /**
