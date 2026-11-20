@@ -7,7 +7,7 @@ import { MemoryStore } from '../worker/store'
 import { device, loopback } from './helpers'
 
 const DAY = 24 * 3600_000
-const T = Date.parse('2026-11-01T10:00:00Z')
+const T = Date.now() // the sync engine stamps rows with the real clock, so the simulated server clock must start there
 
 const tx = (id: string, merchant = 'secret-merchant'): Transaction => ({
   id, date: '2026-10-01', time: '10:00', amountPaise: 1234, type: 'expense', category: 'Food', merchant,
