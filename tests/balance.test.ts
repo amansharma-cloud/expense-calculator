@@ -60,3 +60,17 @@ describe('balance = carry-over + this cycle − what is spent or still to pay', 
     expect(b.afterPlanPaise).toBe(closingBalance(cycle, t))
   })
 })
+
+describe('carryForward (Savings buffer)', () => {
+  it('adds back a Savings buffer the old sheet counted as spent, because it never left the bank', async () => {
+    const { carryForward, closingBalance } = await import('../src/engine/budget')
+    const cy = {
+      start: '2026-09-25', end: '2026-10-25', takeHomePaise: 100000_00, extraCreditsPaise: 0, openingCarryPaise: 50000_00, releasedCarryPaise: 0, source: 'app' as const,
+      allocations: [{ id: 'sav', name: 'Savings', kind: 'reserved' as const, amountPaise: 25000_00 }, { id: 'rent', name: 'Rent', kind: 'fixed' as const, amountPaise: 20000_00 }],
+    }
+    expect(closingBalance(cy, [])).toBe(105000_00)
+    expect(carryForward(cy, [])).toBe(130000_00)
+    const noBuffer = { ...cy, allocations: [cy.allocations[1]] }
+    expect(carryForward(noBuffer, [])).toBe(closingBalance(noBuffer, []))
+  })
+})

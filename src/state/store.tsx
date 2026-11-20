@@ -3,7 +3,7 @@ import {
   createProfile, createProfileFromRemote, deleteProfile, emptyData, lastProfileId, listProfiles, openProfile, rememberProfile, renameProfile, requestPersistence, setLastBackup,
   type ProfileData, type ProfileMeta, type Session, WrongPinError,
 } from '../db/storage'
-import { closingBalance, computeBudget } from '../engine/budget'
+import { carryForward, computeBudget, isSavingsBuffer } from '../engine/budget'
 import { setActiveCurrency } from '../engine/currency'
 import { todayISO } from '../engine/dates'
 import { billsForCycle, convertAllocation, restoreAllocation } from '../engine/bills'
@@ -341,7 +341,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
   const suggestedOpeningCarry = useMemo(() => {
     const prev = data.cycles.filter((c) => c.end <= today).sort((a, b) => b.start.localeCompare(a.start))[0]
-    return prev ? closingBalance(prev, data.transactions) : 0
+    return prev ? carryForward(prev, data.transactions) : 0
   }, [data.cycles, data.transactions, today])
 
   const categories = useMemo(() => {
@@ -511,7 +511,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       for (const t of imp.transactions) if (!t.allocationId && recent.some((r) => t.date >= r)) cats.add(t.category)
       // A "Savings" line is the spendable buffer held at cycle start, not a protected set-aside:
       // it becomes the default release from carry-over instead of an allocation.
-      const isBuffer = (a: Allocation) => a.kind === 'reserved' && /^savings\b/i.test(a.name)
+      const isBuffer = (a: Allocation) => isSavingsBuffer(a)
       nextPlan = {
         ...base,
         takeHomePaise: latest.takeHomePaise,

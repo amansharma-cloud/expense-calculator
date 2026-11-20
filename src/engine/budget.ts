@@ -51,6 +51,17 @@ export function closingBalance(cycle: Cycle, allTxs: Transaction[]): Paise {
   )
 }
 
+/**
+ * A "Savings" line in the old sheet was a spendable buffer: it was subtracted as if spent, then deleted at the end of the
+ * cycle so it went back into the leftover balance. It never actually left the bank account.
+ */
+export const isSavingsBuffer = (a: { kind: string; name: string }) => a.kind === 'reserved' && /^savings\b/i.test(a.name)
+
+/** Cash that really carries into the next cycle: the closing balance plus any Savings buffer the sheet counted as spent. */
+export function carryForward(cycle: Cycle, allTxs: Transaction[]): Paise {
+  return closingBalance(cycle, allTxs) + sum(cycle.allocations.filter(isSavingsBuffer).map((a) => a.amountPaise))
+}
+
 export interface BalanceSummary {
   openingCarryPaise: Paise
   /** Salary + other credits + one-off income this cycle */
