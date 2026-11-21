@@ -135,7 +135,7 @@ export async function handlePush(req: Request, user: string, store: SyncStore, e
   const jwk = parsePrivateJwk(env.VAPID_PRIVATE_JWK)
   await store.init()
 
-  if (path === '/api/push/config' && method === 'GET') return json(jwk ? { enabled: true, publicKey: publicKeyOf(jwk) } : { enabled: false })
+  if (path === '/api/push/config' && method === 'GET') return json(jwk ? { enabled: true, publicKey: publicKeyOf(jwk) } : { enabled: false, reason: env.VAPID_PRIVATE_JWK ? 'the secret is set but is not a valid private key (needs kty EC, crv P-256, d, x, y)' : 'the secret VAPID_PRIVATE_JWK is not visible to the Worker (not set, or not deployed yet)' })
   if (!jwk) return fail(503, 'reminders are not set up on this site')
 
   if (path === '/api/push/last' && method === 'GET') return json({ last: await store.getLastPush(user) })

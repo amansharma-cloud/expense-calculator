@@ -18,7 +18,7 @@ const call = (store: MemoryStore, env: { VAPID_PRIVATE_JWK?: string }, user: str
 describe('push reminders', () => {
   it('is off, and says so, until the secret is set', async () => {
     const r = await call(new MemoryStore(), {}, 'a@x.com', 'GET', '/api/push/config')
-    expect(await r.json()).toEqual({ enabled: false })
+    expect(await r.json()).toMatchObject({ enabled: false })
     expect((await call(new MemoryStore(), {}, 'a@x.com', 'POST', '/api/push/test')).status).toBe(503)
   })
 

@@ -32,10 +32,10 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<{ 
   return { status: res.status, data: json ? ((await res.json()) as T) : null }
 }
 
-export async function serverConfig(): Promise<{ enabled: boolean; publicKey?: string } | null> {
+export async function serverConfig(): Promise<{ enabled: boolean; publicKey?: string; reason?: string } | null> {
   try {
-    const r = await call<{ enabled: boolean; publicKey?: string }>('GET', '/api/push/config')
-    return r.status === 200 ? r.data : null
+    const r = await call<{ enabled: boolean; publicKey?: string; reason?: string }>('GET', '/api/push/config')
+    return r.status === 200 ? r.data : { enabled: false, reason: `the server answered ${r.status} (sign in again, or sync is not set up)` }
   } catch {
     return null
   }

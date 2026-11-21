@@ -33,7 +33,7 @@ export function RemindersSettings() {
   const toast = useToast()
   const [dev, setDev] = useState<DeviceReminders>(() => loadDevice())
   const [subbed, setSubbed] = useState(false)
-  const [cfg, setCfg] = useState<{ enabled: boolean } | null | undefined>(undefined)
+  const [cfg, setCfg] = useState<{ enabled: boolean; reason?: string } | null | undefined>(undefined)
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   useEffect(() => { void serverConfig().then(setCfg); void isSubscribed().then(setSubbed) }, [])
@@ -67,7 +67,7 @@ export function RemindersSettings() {
   return (
     <section className="card stack">
       <SectionHead icon="bell" color="var(--s4)" title="Bill reminders" hint="A phone notification before a bill or EMI is due." />
-      {cfg === null || (cfg && !cfg.enabled) ? <Alert kind="info">Reminders are not switched on for this site yet. See docs/PUSH-SETUP.md.</Alert> : !pushSupported()
+      {cfg === null || (cfg && !cfg.enabled) ? <Alert kind="info">Reminders are not switched on for this site yet{cfg?.reason ? `: ${cfg.reason}` : ''}. See docs/PUSH-SETUP.md.</Alert> : !pushSupported()
         ? <Alert kind="info">This browser cannot receive push reminders. On an iPhone, add the app to your Home Screen first (iOS 16.4 or later).</Alert>
         : (
           <>
