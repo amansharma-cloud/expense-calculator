@@ -6,6 +6,11 @@ import { webcrypto as crypto } from 'node:crypto'
 const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'])
 const jwk = await crypto.subtle.exportKey('jwk', pair.privateKey)
 const { kty, crv, x, y, d } = jwk
+if (process.argv.includes('--raw')) {
+  // Only the JSON, so it can be piped:  node scripts/gen-vapid.mjs --raw | npx wrangler secret put VAPID_PRIVATE_JWK
+  process.stdout.write(JSON.stringify({ kty, crv, x, y, d }))
+  process.exit(0)
+}
 console.log('\nSecret name:  VAPID_PRIVATE_JWK')
 console.log('Secret value (one line, keep it private):\n')
 console.log(JSON.stringify({ kty, crv, x, y, d }))

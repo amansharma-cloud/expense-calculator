@@ -23,6 +23,12 @@ Cloudflare dashboard → **Workers & Pages** → `expense-calculator` → **Sett
 
 Save and deploy. The every-10-minutes timer is declared in `wrangler.jsonc` (`triggers.crons`) and is created by the normal deploy.
 
+Or set it straight from the terminal (nothing to copy; use `--raw` so only the JSON is sent):
+
+```bash
+node scripts/gen-vapid.mjs --raw | npx wrangler secret put VAPID_PRIVATE_JWK
+```
+
 ## 3. Turn it on in the app
 
 Settings → **Bill reminders** → **Turn on reminders** → Allow. Tap **Send a test**; a notification should arrive within seconds.
