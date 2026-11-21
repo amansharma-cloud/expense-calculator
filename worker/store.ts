@@ -21,6 +21,18 @@ export interface SyncStore {
   ensureSnapshot(user: string, id: string, day: string, now: number): Promise<void>
   listSnapshots(user: string, id: string): Promise<SnapshotInfo[]>
   snapshotRows(user: string, id: string, day: string, afterK: string, limit: number): Promise<RemoteRow[]>
+  // ----- push reminders (see worker/push.ts): addresses and send times only, never bill data -----
+  putPushSub(user: string, endpoint: string, now: number): Promise<void>
+  deletePushSub(user: string, endpoint: string): Promise<void>
+  listPushSubs(user: string): Promise<string[]>
+  /** Replace this profile's reminder times. */
+  setSchedule(user: string, profile: string, items: { at: number; title: string; body: string }[]): Promise<void>
+  dueSchedule(now: number): Promise<{ user: string; profile: string; at: number; title: string; body: string }[]>
+  removeSchedule(user: string, profile: string, at: number): Promise<void>
+  /** Forget reminders older than `before` (the device was off; a stale reminder is worse than none). */
+  pruneSchedule(before: number): Promise<void>
+  setLastPush(user: string, at: number, title: string, body: string): Promise<void>
+  getLastPush(user: string): Promise<{ at: number; title: string; body: string } | null>
 }
 
 // ---------- Cloudflare D1 ----------
@@ -53,6 +65,12 @@ const SCHEMA = [
     user TEXT NOT NULL, profile TEXT NOT NULL, day TEXT NOT NULL, k TEXT NOT NULL, t TEXT NOT NULL,
     u INTEGER NOT NULL, iv TEXT NOT NULL, ct TEXT NOT NULL,
     PRIMARY KEY (user, profile, day, k))`,
+  `CREATE TABLE IF NOT EXISTS push_subs (user TEXT NOT NULL, endpoint TEXT NOT NULL, created INTEGER NOT NULL, PRIMARY KEY (user, endpoint))`,
+  `CREATE TABLE IF NOT EXISTS push_schedule (
+    user TEXT NOT NULL, profile TEXT NOT NULL, at INTEGER NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL,
+    PRIMARY KEY (user, profile, at))`,
+  `CREATE INDEX IF NOT EXISTS push_schedule_at ON push_schedule (at)`,
+  `CREATE TABLE IF NOT EXISTS push_last (user TEXT PRIMARY KEY, at INTEGER NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL)`,
 ]
 
 interface ProfileRow { id: string; name: string; salt: string; check_iv: string; check_ct: string; created: number; updated: number; n?: number }
@@ -148,6 +166,39 @@ export class D1Store implements SyncStore {
     return results
   }
 
+  async putPushSub(user: string, endpoint: string, now: number) {
+    await this.db.prepare(`INSERT OR IGNORE INTO push_subs (user, endpoint, created) VALUES (?,?,?)`).bind(user, endpoint, now).run()
+  }
+  async deletePushSub(user: string, endpoint: string) {
+    await this.db.prepare(`DELETE FROM push_subs WHERE user = ? AND endpoint = ?`).bind(user, endpoint).run()
+  }
+  async listPushSubs(user: string) {
+    const { results } = await this.db.prepare(`SELECT endpoint FROM push_subs WHERE user = ?`).bind(user).all<{ endpoint: string }>()
+    return results.map((r) => r.endpoint)
+  }
+  async setSchedule(user: string, profile: string, items: { at: number; title: string; body: string }[]) {
+    await this.db.batch([
+      this.db.prepare(`DELETE FROM push_schedule WHERE user = ? AND profile = ?`).bind(user, profile),
+      ...items.map((i) => this.db.prepare(`INSERT OR REPLACE INTO push_schedule (user, profile, at, title, body) VALUES (?,?,?,?,?)`).bind(user, profile, i.at, i.title, i.body)),
+    ])
+  }
+  async dueSchedule(now: number) {
+    const { results } = await this.db.prepare(`SELECT user, profile, at, title, body FROM push_schedule WHERE at <= ? ORDER BY at LIMIT 100`).bind(now).all<{ user: string; profile: string; at: number; title: string; body: string }>()
+    return results
+  }
+  async removeSchedule(user: string, profile: string, at: number) {
+    await this.db.prepare(`DELETE FROM push_schedule WHERE user = ? AND profile = ? AND at = ?`).bind(user, profile, at).run()
+  }
+  async pruneSchedule(before: number) {
+    await this.db.prepare(`DELETE FROM push_schedule WHERE at < ?`).bind(before).run()
+  }
+  async setLastPush(user: string, at: number, title: string, body: string) {
+    await this.db.prepare(`INSERT OR REPLACE INTO push_last (user, at, title, body) VALUES (?,?,?,?)`).bind(user, at, title, body).run()
+  }
+  async getLastPush(user: string) {
+    return this.db.prepare(`SELECT at, title, body FROM push_last WHERE user = ?`).bind(user).first<{ at: number; title: string; body: string }>()
+  }
+
   /** Last-writer-wins by `u`; each accepted write gets the next `r` (statements in a batch run in order). */
   async upsertRows(user: string, id: string, rows: RemoteRow[]) {
     const stmts = rows.map((row) =>
@@ -228,4 +279,20 @@ export class MemoryStore implements SyncStore {
   async snapshotRows(user: string, id: string, day: string, afterK: string, limit: number) {
     return (this.snaps.get(this.pk(user, id))?.get(day) ?? []).filter((r) => r.k > afterK).sort((a, b) => (a.k < b.k ? -1 : 1)).slice(0, limit)
   }
+
+  // ----- push reminders -----
+  subs = new Map<string, Set<string>>()
+  schedule: { user: string; profile: string; at: number; title: string; body: string }[] = []
+  last = new Map<string, { at: number; title: string; body: string }>()
+  async putPushSub(user: string, endpoint: string, _now?: number) { (this.subs.get(user) ?? this.subs.set(user, new Set()).get(user)!).add(endpoint) }
+  async deletePushSub(user: string, endpoint: string) { this.subs.get(user)?.delete(endpoint) }
+  async listPushSubs(user: string) { return [...(this.subs.get(user) ?? [])] }
+  async setSchedule(user: string, profile: string, items: { at: number; title: string; body: string }[]) {
+    this.schedule = [...this.schedule.filter((x) => !(x.user === user && x.profile === profile)), ...items.map((i) => ({ user, profile, ...i }))]
+  }
+  async dueSchedule(now: number) { return this.schedule.filter((x) => x.at <= now).sort((a, b) => a.at - b.at).slice(0, 100) }
+  async removeSchedule(user: string, profile: string, at: number) { this.schedule = this.schedule.filter((x) => !(x.user === user && x.profile === profile && x.at === at)) }
+  async pruneSchedule(before: number) { this.schedule = this.schedule.filter((x) => x.at >= before) }
+  async setLastPush(user: string, at: number, title: string, body: string) { this.last.set(user, { at, title, body }) }
+  async getLastPush(user: string) { return this.last.get(user) ?? null }
 }

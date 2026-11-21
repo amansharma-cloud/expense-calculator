@@ -4,6 +4,7 @@ import { useStore } from '../../state/store'
 import { Alert, Confirm, Field, Icon, Modal, Seg, useToast } from '../components/common'
 import { SectionHead } from '../components/Section'
 import { SyncSettings } from '../components/CloudSync'
+import { RemindersSettings } from '../components/Reminders'
 import { DataHealth } from '../components/DataHealth'
 const ImportWizard = lazy(() => import('../components/ImportWizard').then((m) => ({ default: m.ImportWizard })))
 
@@ -59,6 +60,8 @@ export function Settings() {
       </section>
 
       <SyncSettings />
+
+      <RemindersSettings />
 
       <section className="card stack">
         <SectionHead icon="spark" color="var(--s5)" title="Appearance" hint="Theme and animations." />

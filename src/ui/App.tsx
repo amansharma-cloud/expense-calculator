@@ -7,6 +7,7 @@ import { effectiveMotion } from './motion'
 import { AutoBackupRunner } from './components/DataHealth'
 import { ExpenseForm } from './components/ExpenseForm'
 import { Tour, TourButton } from './components/Tour'
+import { ReminderSync } from './components/Reminders'
 import { Dashboard } from './pages/Dashboard'
 import { NewCycle, ProfilePicker, Setup } from './pages/Gate'
 
@@ -123,6 +124,7 @@ export function App() {
         )}
         <Suspense fallback={<div className="stack"><div className="skeleton" style={{ height: 56, width: '50%' }} /><div className="skeleton" style={{ height: 180 }} /><div className="skeleton" style={{ height: 180 }} /></div>}>{page()}</Suspense>
       </main>
+      {inApp && <ReminderSync />}
       {!touring && <TourButton onClick={startTour} />}
       {touring && <Tour route={route} go={go} onClose={endTour} />}
       {route !== 'add' && <button data-tour="fab" className="fab" onClick={() => openAdd()} aria-label="Add expense"><Icon name="plus" /></button>}

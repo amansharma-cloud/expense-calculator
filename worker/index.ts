@@ -2,8 +2,9 @@ import { handleApi } from './api'
 import { canonicalRedirect } from './host'
 import { AuthError, getJwks, kidOf, verifyAccessJwt } from './auth'
 import { D1Store, type D1Like } from './store'
+import { handlePush, runDueReminders, type PushEnv } from './push'
 
-interface Env {
+interface Env extends PushEnv {
   ASSETS: { fetch(req: Request): Promise<Response> }
   DB?: D1Like
   /** e.g. "myteam.cloudflareaccess.com" */
@@ -55,6 +56,7 @@ export default {
       if (!env.DB) return jsonErr(503, 'sync database is not configured')
       store ??= new D1Store(env.DB)
       try {
+        if (url.pathname.startsWith('/api/push/')) return await handlePush(req, who.email, store, env)
         return await handleApi(req, who.email, store)
       } catch {
         return text(500, 'server error') // never leak internals
@@ -62,5 +64,12 @@ export default {
     }
 
     return env.ASSETS.fetch(req)
+  },
+
+  /** Cron: send any reminders that have come due (see worker/push.ts). */
+  async scheduled(_event: unknown, env: Env): Promise<void> {
+    if (!env.DB || !env.VAPID_PRIVATE_JWK) return
+    store ??= new D1Store(env.DB)
+    await runDueReminders(store, env, Date.now())
   },
 }

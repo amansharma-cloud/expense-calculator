@@ -12,6 +12,8 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "expense-calculator", "database_id": "970b04f4-9f31-45cd-b155-a9fa3c2abf5e" }
   ],
+  // Reminders: this cron sends any push that has come due. See docs/PUSH-SETUP.md for the one secret it needs.
+  "triggers": { "crons": ["*/10 * * * *"] },
   "vars": {
     "ACCESS_TEAM_DOMAIN": "falling-brook-40ff.cloudflareaccess.com",
     "ACCESS_AUD": "c3e62abf1ef519d2d1884c88c4bb1d284a14d2ffb0f318b7223e691eb0e6146f"
